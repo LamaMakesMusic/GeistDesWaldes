@@ -1,8 +1,7 @@
-﻿using Discord;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Communication;
-using GeistDesWaldes.Configuration;
 using GeistDesWaldes.Currency;
 using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.Users;

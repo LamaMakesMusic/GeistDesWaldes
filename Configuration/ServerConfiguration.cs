@@ -35,6 +35,7 @@ namespace GeistDesWaldes.Configuration
         public int MaxPollsPerChannel = 3;
 
         public string CultureInfoIdentifier = "de-DE";
+        public string CommandPageLink = ""; // If existing, enter the website-link listing all of your commands
     }
 
     [Serializable]

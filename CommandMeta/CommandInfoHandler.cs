@@ -1,4 +1,4 @@
-﻿using Discord;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Communication;
@@ -19,6 +19,7 @@ namespace GeistDesWaldes.CommandMeta
         public List<CommandMetaInfo> FactoryCommands;
         public List<CommandMetaInfo> CustomCommands;
 
+        public ChannelMessage CommandPageLinkMessage;
         public ChannelMessage CustomCommandHelpMessage;
         public ChannelMessage FactoryCommandHelpMessage;
 
@@ -55,6 +56,8 @@ namespace GeistDesWaldes.CommandMeta
             
             await ExportCustomCommandInfoPage();
             await ExportFactoryCommandInfoPage();
+
+            CommandPageLinkMessage = new ChannelMessage(null).SetTemplate(ChannelMessage.MessageTemplateOption.Information).AddContent(new ChannelMessageContent().SetTitle("All Commands").SetDescription(_Server.Config.GeneralSettings.CommandPageLink));
         }
 
         private async Task CheckIntegrity()

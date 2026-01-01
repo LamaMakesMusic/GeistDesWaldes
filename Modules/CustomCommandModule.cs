@@ -1,4 +1,4 @@
-﻿using Discord;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.CommandMeta;
@@ -28,8 +28,13 @@ namespace GeistDesWaldes.Modules
             try
             {
                 ChannelMessage msg = _Server.CommandInfoHandler.CustomCommandHelpMessage;
+                
+                if (!string.IsNullOrWhiteSpace(_Server.Config.GeneralSettings.CommandPageLink))
+                {
+                    msg = _Server.CommandInfoHandler.CommandPageLinkMessage;
+                }
+                
                 msg.Channel = Context.Channel;
-
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
