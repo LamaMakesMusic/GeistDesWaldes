@@ -38,7 +38,7 @@ namespace GeistDesWaldes.Modules
                 if (cachedStream != null && cachedStream.IsOnline)
                 {
                     body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_STREAMING_FOR_Y, "{x}", channelName);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", (DateTime.UtcNow - cachedStream.StartedAt).ToString(@"hh\:mm\:ss", _Server.CultureInfo));
+                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", _Server.CultureInfo));
                 }
                 else
                 {
@@ -49,7 +49,7 @@ namespace GeistDesWaldes.Modules
                     else
                     {
                         body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_LAST_STREAM_Y_AGO, "{x}", channelName);
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", (DateTime.UtcNow - cachedStream.LastSeenAt).ToString(@"hh\:mm\:ss", _Server.CultureInfo));
+                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", _Server.CultureInfo));
                     }
                 }
 
@@ -79,7 +79,7 @@ namespace GeistDesWaldes.Modules
                 if (user == null)
                     user = Context.User;
 
-                if (Context.Channel is not TwitchMessageChannel twitchChannel)
+                if (Context.Channel is not TwitchMessageChannel)
                     return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH} -> '{Context?.Channel?.Name}' is not a {nameof(TwitchMessageChannel)}.");
                 
                 if (user is not TwitchUser twitchUser)
@@ -130,7 +130,7 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                if (Context.Channel is not TwitchMessageChannel twitchChannel || Context.User is not TwitchUser twitchUser)
+                if (Context.Channel is not TwitchMessageChannel || Context.User is not TwitchUser twitchUser)
                     return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH} -> '{Context?.Channel?.Name}' is not a {nameof(TwitchMessageChannel)}.");
 
                 var userResult = await _Server.ForestUserHandler.GetUser(twitchUser);
@@ -186,7 +186,7 @@ namespace GeistDesWaldes.Modules
                 {
                     targetUser ??= Context.User;
 
-                    if (Context.Channel is not TwitchMessageChannel twitchChannel)
+                    if (Context.Channel is not TwitchMessageChannel)
                         return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH} -> '{Context?.Channel?.Name}' is not a {nameof(TwitchMessageChannel)}.");
 
                     var userResult = await _Server.ForestUserHandler.GetUser(targetUser);

@@ -613,7 +613,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 _ = Task.Run(async () =>
                 {
                     if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
-                        await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                        await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
                 });
             }
 
@@ -626,46 +626,59 @@ namespace GeistDesWaldes.TwitchIntegration
             if (StreamInfo.IsOnline)
                 return;
             
-            StreamOnline streamPayload = e?.Payload?.Event;
-
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOnline)}", $"Channel went live at {streamPayload?.StartedAt}!", LogSeverity.Debug);
+            StreamOnline evt = e?.Payload?.Event;
+            DateTimeOffset startedAt = evt?.StartedAt ?? DateTimeOffset.Now;
             
-            StreamInfo.IsOnline = true;
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOnline)}", $"Channel went live at {startedAt}!", LogSeverity.Debug);
+            
+            StreamInfo.SetOnline(startedAt);
+
+            if (StreamInfo.HasInvalidEntries)
+                StreamInfo.Update(await TwitchIntegrationHandler.GetStream(ChannelId, ChannelName));
             
             EnsureLiveStreamUpdateLoop();
             
             await NotifyStreamOnline();
-
         }
         
         private async Task NotifyStreamOnline()
         {
             TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOnline)}", $"[{ChannelName}] Stream is Online! {StreamInfo}", LogSeverity.Info);
 
-            GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
             TwitchLib.Api.Helix.Models.Games.Game game = null;
-            if (gameMatches.Games?.Length > 0)
-                game = gameMatches.Games[0];
 
+            if (!string.IsNullOrWhiteSpace(StreamInfo.Category))
+            {
+                GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
+                if (gameMatches.Games?.Length > 0)
+                    game = gameMatches.Games[0];
+            }
+
+            string titleName  = StreamInfo.Title ?? "???";
+            string gameName = game?.Name ?? "???";
+            double minutesSinceLastChange = StreamInfo.TimeSinceLastChange.TotalMinutes;
+            
             foreach ((ServerConfiguration config, ConfigStreamEntity entity) in _configStreamEntities)
             {
                 _ = Task.Run(async() =>
                 {
                     entity.IntervalActionWatchdog.Start();
 
+                    string lastChangeString = StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo);
+                    
                     var callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStart);
                     if (callbackResult.IsSuccess)
                     {
                         if (callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, game != null ? game.Name : "-", StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
                     }
 
-                    if ((DateTime.UtcNow - StreamInfo.StartedAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+                    if (minutesSinceLastChange < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
                     {
                         callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
                     
                         if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, game != null ? game.Name : "-", StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
                     }
                 });
             }
@@ -679,7 +692,8 @@ namespace GeistDesWaldes.TwitchIntegration
             
             TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOffline)}", "Channel went offline!", LogSeverity.Debug);
 
-            StreamInfo.IsOnline = false;
+            StreamInfo.SetOffline();
+            
             await NotifyStreamOffline();
         }
         
@@ -699,15 +713,15 @@ namespace GeistDesWaldes.TwitchIntegration
                     if (callbackResult.IsSuccess)
                     {
                         if (callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
                     }
 
-                    if ((DateTime.UtcNow - StreamInfo.LastSeenAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+                    if (StreamInfo.TimeSinceLastChange.TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
                     {
                         callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
                 
                         if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
                     }
                     
                 });

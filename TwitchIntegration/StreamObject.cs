@@ -1,4 +1,5 @@
 ﻿using System;
+using TwitchLib.Api.Helix.Models.Streams.GetStreams;
 
 namespace GeistDesWaldes.TwitchIntegration
 {
@@ -6,34 +7,48 @@ namespace GeistDesWaldes.TwitchIntegration
     {
         public bool IsOnline
         {
-            get => _isOnline;
-            set
-            {
-                if (_isOnline == value)
-                    return;
-                
-                _isOnline = value;
-                
-                if (_isOnline)
-                    StartedAt = DateTime.Now;
-                else
-                    LastSeenAt = DateTime.Now;
-            }
+            get;
+            private set;
         }
-        private bool _isOnline;
 
         public string Title;
         public string Category;
-        public DateTime StartedAt { get; private set; }
-        public DateTime LastSeenAt{ get; private set; }
+        public DateTimeOffset LastChange { get; private set; }
+        public TimeSpan TimeSinceLastChange => DateTimeOffset.Now - LastChange;
+        
+        public bool HasInvalidEntries => string.IsNullOrEmpty(Title) || string.IsNullOrEmpty(Category);
+        
 
-        public StreamObject()
+        public void SetOnline(DateTimeOffset startedAt)
         {
+            IsOnline = true;
+            LastChange = startedAt;
         }
 
+        public void SetOffline()
+        {
+            IsOnline = false;
+            LastChange = DateTimeOffset.Now;
+        }
+
+        public void Update(Stream stream)
+        {
+            if (stream == null)
+            {
+                Title = "null";
+                Category = "null";
+            }
+            else
+            {
+                Title = stream.Title;
+                Category = stream.GameId;
+            }
+        }
+        
+        
         public override string ToString()
         {
-            return $"{nameof(StartedAt)} {StartedAt} | {nameof(Title)}: '{Title}' | {nameof(Category)}: '{Category}' | {nameof(LastSeenAt)} {LastSeenAt}";
+            return $"{nameof(Title)}: '{Title}' | {nameof(Category)}: '{Category}' | {nameof(LastChange)} {LastChange}";
         }
     }
 }

@@ -128,20 +128,38 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public static async Task<string> ChannelNameToBroadcasterId(string channelName)
         {
-            return (await ValidatedAPICall(Instance.API.Helix.Users.GetUsersAsync(logins: new List<string>() { channelName })))?.Users?[0]?.Id;
-        }
-
-        public static async Task GetStream(string channelName, string channelId)
-        {
             try
             {
-                GetStreamsResponse streamResponse = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
+                // get from cache if known broadcaster
+                foreach (Server server in Launcher.Instance.Servers.Values)
+                {
+                    if (server.Config.TwitchSettings.TwitchChannelName.Equals(channelName, StringComparison.OrdinalIgnoreCase))
+                        return server.RuntimeConfig.ChannelOwner.Id;
+                }
+
+                return (await ValidatedAPICall(Instance.API.Helix.Users.GetUsersAsync(logins: [channelName])))?.Users?[0]?.Id;
             }
             catch (Exception ex)
             {
-                TwitchIntegrationHandler.LogToMain($"[{channelName}] {nameof(GetStream)}", "Failed getting stream!", LogSeverity.Error, exception: ex);
+                LogToMain($"[{channelName}] {nameof(ChannelNameToBroadcasterId)}", $"Could not get broadcaster id for '{channelName}'", LogSeverity.Error, exception: ex);
             }
 
+            return null;
+        }
+
+        public static async Task<Stream> GetStream(string channelId, string debugSource)
+        {
+            try
+            {
+                GetStreamsResponse streamResponse = await ValidatedAPICall(Instance.API.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
+                return streamResponse.Streams[0];
+            }
+            catch (Exception ex)
+            {
+                LogToMain($"[{debugSource}] {nameof(GetStream)}", $"Failed getting stream for Id '{channelId}'!", LogSeverity.Error, exception: ex);
+            }
+
+            return null;
         }
         
 
