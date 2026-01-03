@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using TwitchLib.Api;
 using TwitchLib.Api.Core;
 using TwitchLib.Api.Helix.Models.Chat;
+using TwitchLib.Api.Helix.Models.Streams.GetStreams;
 using TwitchLib.Client;
 using TwitchLib.Client.Models;
 using TwitchLib.EventSub.Websockets;
@@ -94,7 +95,6 @@ namespace GeistDesWaldes.TwitchIntegration
             }
         }
 
-        public readonly LivestreamMonitor LivestreamMonitor = new ();
         public readonly Dictionary<string, TwitchIntegrationClient> Clients = new ();
 
         private static DateTime _lastAuthTokenCheck = DateTime.Now;
@@ -131,6 +131,19 @@ namespace GeistDesWaldes.TwitchIntegration
             return (await ValidatedAPICall(Instance.API.Helix.Users.GetUsersAsync(logins: new List<string>() { channelName })))?.Users?[0]?.Id;
         }
 
+        public static async Task GetStream(string channelName, string channelId)
+        {
+            try
+            {
+                GetStreamsResponse streamResponse = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
+            }
+            catch (Exception ex)
+            {
+                TwitchIntegrationHandler.LogToMain($"[{channelName}] {nameof(GetStream)}", "Failed getting stream!", LogSeverity.Error, exception: ex);
+            }
+
+        }
+        
 
         public TwitchIntegrationHandler()
         {
@@ -146,7 +159,6 @@ namespace GeistDesWaldes.TwitchIntegration
                 try
                 {
                     await SetupAPI();
-                    LivestreamMonitor.Start();
                 }
                 catch (Exception e)
                 {
@@ -160,8 +172,6 @@ namespace GeistDesWaldes.TwitchIntegration
 
             TwitchAuthentication.OnLog -= LogEventHandler;
             
-            LivestreamMonitor.Stop();
-
             foreach (TwitchIntegrationClient client in Clients.Values)
             {
                 client?.Stop();
@@ -195,8 +205,6 @@ namespace GeistDesWaldes.TwitchIntegration
                 return;
             }
 
-            LivestreamMonitor.AddCache(server.Config.TwitchSettings.TwitchChannelName);
-
             if (!Clients.TryGetValue(server.Config.TwitchSettings.TwitchChannelName, out TwitchIntegrationClient existing))
             {
                 EventSubWebsocketClient socket = server.Services.GetService<EventSubWebsocketClient>();
@@ -218,8 +226,6 @@ namespace GeistDesWaldes.TwitchIntegration
         }
         public void StopListening(Server server)
         {
-            LivestreamMonitor.RemoveCache(server.Config.TwitchSettings.TwitchChannelName);
-
             if (!Clients.TryGetValue(server.Config.TwitchSettings.TwitchChannelName, out TwitchIntegrationClient existing))
                 return;
 

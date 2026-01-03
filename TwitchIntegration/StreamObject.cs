@@ -4,29 +4,36 @@ namespace GeistDesWaldes.TwitchIntegration
 {
     public class StreamObject
     {
-        public bool IsOnline;
+        public bool IsOnline
+        {
+            get => _isOnline;
+            set
+            {
+                if (_isOnline == value)
+                    return;
+                
+                _isOnline = value;
+                
+                if (_isOnline)
+                    StartedAt = DateTime.Now;
+                else
+                    LastSeenAt = DateTime.Now;
+            }
+        }
+        private bool _isOnline;
 
         public string Title;
-        public string Game;
-        public DateTime StartedAt;
-        public DateTime LastSeenAt;
+        public string Category;
+        public DateTime StartedAt { get; private set; }
+        public DateTime LastSeenAt{ get; private set; }
 
         public StreamObject()
         {
-
-        }
-
-        public void UpdateContent(string title, string game, DateTime startTime)
-        {
-            Title = title;
-            Game = game;
-            StartedAt = startTime;
-            LastSeenAt = DateTime.UtcNow;
         }
 
         public override string ToString()
         {
-            return $"{nameof(StartedAt)} {StartedAt} | {nameof(Title)}: '{Title}' | {nameof(Game)}: '{Game}' | {nameof(LastSeenAt)} {LastSeenAt}";
+            return $"{nameof(StartedAt)} {StartedAt} | {nameof(Title)}: '{Title}' | {nameof(Category)}: '{Category}' | {nameof(LastSeenAt)} {LastSeenAt}";
         }
     }
 }

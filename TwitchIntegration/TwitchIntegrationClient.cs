@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using GeistDesWaldes.Attributes;
 using TwitchLib.Api.Core.Enums;
 using TwitchLib.Api.Helix.Models.Games;
+using TwitchLib.Api.Helix.Models.Streams.GetStreams;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
@@ -103,6 +104,10 @@ namespace GeistDesWaldes.TwitchIntegration
 
         private readonly Dictionary<ServerConfiguration, ConfigStreamEntity> _configStreamEntities = new();
         public int ServerCount => _configStreamEntities.Count;
+        
+        public readonly StreamObject StreamInfo = new();
+        private Task _liveStreamUpdateLoopTask;
+        
 
         // see: https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/ 
         private static readonly Dictionary<string, string> _subscriptionTypes = new()
@@ -581,53 +586,63 @@ namespace GeistDesWaldes.TwitchIntegration
             return Task.CompletedTask;
         }
         
-        private Task EventSub_OnChannelUpdate(object sender, ChannelUpdateArgs e)
+        
+        private async Task EventSub_OnChannelUpdate(object sender, ChannelUpdateArgs e)
         {
             ChannelUpdate updatePayload = e?.Payload?.Event;
 
             string title = updatePayload?.Title ?? "NULL";
             string category = updatePayload?.CategoryName ?? "NULL";
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelUpdate)}", $"Channel Updated! Now streaming '{title}' in category '{category}'!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelUpdate)}", $"Channel Updated! Now streaming '{title}' in category '{category}'!", LogSeverity.Debug);
+
+            StreamInfo.Title = title;
+            StreamInfo.Category = category;
             
+            EnsureLiveStreamUpdateLoop();
+            
+            await NotifyStreamUpdate();
+        }
+
+        private Task NotifyStreamUpdate()
+        {
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamUpdate)}", $"[{ChannelName}] Stream Updated! {StreamInfo}", LogSeverity.Info);
+            
+            foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
+            {
+                _ = Task.Run(async () =>
+                {
+                    if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
+                        await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                });
+            }
+
             return Task.CompletedTask;
         }
         
-        private Task EventSub_OnStreamOnline(object sender, StreamOnlineArgs e)
+        
+        private async Task EventSub_OnStreamOnline(object sender, StreamOnlineArgs e)
         {
+            if (StreamInfo.IsOnline)
+                return;
+            
             StreamOnline streamPayload = e?.Payload?.Event;
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOnline)}", $"Channel went live at {streamPayload?.StartedAt}!");
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOnline)}", $"Channel went live at {streamPayload?.StartedAt}!", LogSeverity.Debug);
             
-            return Task.CompletedTask;
-        }
+            StreamInfo.IsOnline = true;
+            
+            EnsureLiveStreamUpdateLoop();
+            
+            await NotifyStreamOnline();
 
-        private Task EventSub_OnStreamOffline(object sender, StreamOfflineArgs e)
-        {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOffline)}", "Channel went offline!");
-            return Task.CompletedTask;
         }
-
         
-        public void StartListening(Server server)
+        private async Task NotifyStreamOnline()
         {
-            if (_configStreamEntities.ContainsKey(server.Config))
-                return;
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOnline)}", $"[{ChannelName}] Stream is Online! {StreamInfo}", LogSeverity.Info);
 
-            _configStreamEntities.Add(server.Config, new ConfigStreamEntity(server, server.Config));
-        }
-        public void StopListening(ServerConfiguration config)
-        {
-            _configStreamEntities.Remove(config);
-        }
-
-
-        // LIVE STREAM MONITOR
-        public async Task OnStreamOnline(StreamObject stream)
-        {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnStreamOnline)}", $"[{ChannelName}] Stream is Online! {stream}", LogSeverity.Info);
-
-            GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([stream.Game]));
+            GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
             TwitchLib.Api.Helix.Models.Games.Game game = null;
             if (gameMatches.Games?.Length > 0)
                 game = gameMatches.Games[0];
@@ -642,61 +657,115 @@ namespace GeistDesWaldes.TwitchIntegration
                     if (callbackResult.IsSuccess)
                     {
                         if (callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ stream.Title, game != null ? game.Name : "-", stream.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ StreamInfo.Title, game != null ? game.Name : "-", StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
                     }
 
-                    if ((DateTime.UtcNow - stream.StartedAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+                    if ((DateTime.UtcNow - StreamInfo.StartedAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
                     {
                         callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
                     
                         if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ stream.Title, game != null ? game.Name : "-", stream.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                            await callback.Execute(null, [ StreamInfo.Title, game != null ? game.Name : "-", StreamInfo.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
                     }
                 });
             }
         }
-        public async Task OnStreamUpdate(StreamObject stream)
-        {
-            foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
-            {
-                await entity.UpdateViewers();
 
-                if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
-                    await callback.Execute(null, [ stream.Title, stream.Game, stream.StartedAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
-            }
-        }
-        public Task OnStreamOffline(StreamObject stream)
+        
+        private async Task EventSub_OnStreamOffline(object sender, StreamOfflineArgs e)
         {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnStreamOffline)}", $"Stream is Offline! {stream}", LogSeverity.Info);
+            if (!StreamInfo.IsOnline)
+                return;
+            
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnStreamOffline)}", "Channel went offline!", LogSeverity.Debug);
+
+            StreamInfo.IsOnline = false;
+            await NotifyStreamOffline();
+        }
+        
+        private Task NotifyStreamOffline()
+        {
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOffline)}", $"Stream is Offline! {StreamInfo}", LogSeverity.Info);
 
             foreach ((ServerConfiguration config, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                Task.Run(() => NotifyStreamOffline(config, entity, stream));
+                _ = Task.Run(async() =>
+                {
+                    entity.ClearActiveChatters();
+                    entity.IntervalActionWatchdog.Stop();
+
+                    CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
+            
+                    if (callbackResult.IsSuccess)
+                    {
+                        if (callbackResult.ResultValue is { } callback)
+                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                    }
+
+                    if ((DateTime.UtcNow - StreamInfo.LastSeenAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+                    {
+                        callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
+                
+                        if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
+                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                    }
+                    
+                });
             }
 
             return Task.CompletedTask;
         }
 
-        private async Task NotifyStreamOffline(ServerConfiguration config, ConfigStreamEntity entity, StreamObject stream)
+
+        private void EnsureLiveStreamUpdateLoop()
         {
-            entity.ClearActiveChatters();
-            entity.IntervalActionWatchdog.Stop();
-
-            CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
+            if (_liveStreamUpdateLoopTask != null || !StreamInfo.IsOnline)
+                return;
             
-            if (callbackResult.IsSuccess)
-            {
-                if (callbackResult.ResultValue is { } callback)
-                    await callback.Execute(null, [ stream.Title, stream.Game, stream.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
-            }
+            _liveStreamUpdateLoopTask = Task.Run(LiveStreamUpdateLoop);
+        }
+        
+        private async Task LiveStreamUpdateLoop()
+        {
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(LiveStreamUpdateLoop)}", $"Started!", LogSeverity.Debug);
 
-            if ((DateTime.UtcNow - stream.LastSeenAt).TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+            try
             {
-                callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
-                
-                if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                    await callback.Execute(null, [ stream.Title, stream.Game, stream.LastSeenAt.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+                do
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(ConfigurationHandler.Shared.LivestreamMonitorIntervalInMinutes));
+
+                    foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
+                    {
+                        await entity.UpdateViewers();
+                    }
+                }
+                while (_liveStreamUpdateLoopTask != null && StreamInfo.IsOnline);
             }
+            catch (Exception ex)
+            {
+                TwitchIntegrationHandler.LogToMain(nameof(LiveStreamUpdateLoop), string.Empty, LogSeverity.Error, exception: ex);
+            }
+            finally
+            {
+                _liveStreamUpdateLoopTask = null;
+                
+                TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(LiveStreamUpdateLoop)}", $"Stopped!", LogSeverity.Debug);
+            }
+        }
+        
+        
+        
+        public void StartListening(Server server)
+        {
+            if (_configStreamEntities.ContainsKey(server.Config))
+                return;
+
+            _configStreamEntities.Add(server.Config, new ConfigStreamEntity(server, server.Config));
+        }
+        public void StopListening(ServerConfiguration config)
+        {
+            _configStreamEntities.Remove(config);
         }
         
 

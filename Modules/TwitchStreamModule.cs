@@ -25,7 +25,14 @@ namespace GeistDesWaldes.Modules
             try
             {
                 string channelName = _Server.Config.TwitchSettings.TwitchChannelName;
-                StreamObject cachedStream = Launcher.Instance.TwitchIntegrationHandler.LivestreamMonitor.GetStream(channelName);
+
+                StreamObject cachedStream = null;
+                
+                if (TwitchIntegrationHandler.Instance.Clients.TryGetValue(channelName, out TwitchIntegrationClient client))
+                {
+                    cachedStream = client.StreamInfo;
+                }
+                
                 string body;
 
                 if (cachedStream != null && cachedStream.IsOnline)
