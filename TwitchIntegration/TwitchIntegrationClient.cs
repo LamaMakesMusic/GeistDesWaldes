@@ -649,9 +649,17 @@ namespace GeistDesWaldes.TwitchIntegration
 
             if (!string.IsNullOrWhiteSpace(StreamInfo.Category))
             {
-                GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
-                if (gameMatches.Games?.Length > 0)
-                    game = gameMatches.Games[0];
+                try
+                {
+                    GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
+                    
+                    if (gameMatches.Games?.Length > 0)
+                        game = gameMatches.Games[0];
+                }
+                catch (Exception ex)
+                {
+                    TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOnline)}", "Failed retrieving game.", exception: ex);
+                }
             }
 
             string titleName  = StreamInfo.Title ?? "???";
