@@ -1,12 +1,11 @@
-﻿using Discord;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
-using TwitchLib.Client;
+using Discord;
 using GeistDesWaldes.Configuration;
+using TwitchLib.Api.Helix.Models.Users.GetUsers;
+using TwitchLib.Client;
 
 namespace GeistDesWaldes.TwitchIntegration
 {
@@ -41,8 +40,6 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public ChannelType ChannelType => ChannelType.Text;
 
-        public Task<IUserMessage> SendMessageAsync(string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None)
-            => SendMessageAsync(text, isTTS, embed, options, allowedMentions, messageReference, components, stickers, embeds, flags, null);
         public async Task<IUserMessage> SendMessageAsync(string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None, PollProperties poll = null)
         {
             if (text == null)
@@ -104,26 +101,25 @@ namespace GeistDesWaldes.TwitchIntegration
                 return null;
             });
         }
-        public IAsyncEnumerable<IReadOnlyCollection<IUser>> GetUsersAsync(CacheMode mode = CacheMode.AllowDownload, RequestOptions options = null)
+        public async IAsyncEnumerable<IReadOnlyCollection<IUser>> GetUsersAsync(CacheMode mode = CacheMode.AllowDownload, RequestOptions options = null)
         {
-            Task<ReadOnlyCollection<TwitchUser>> task = Task.Run(async () =>
+            RuntimeConfiguration runConfig = ConfigurationHandler.RuntimeConfig[GuildId];
+            
+            List<TwitchUser> twitchUsers =
+            [
+                new TwitchUser(runConfig.ChannelOwner.Id, runConfig.ChannelOwner.Login)
+            ];
+
+            GetUsersResponse response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
+
+            foreach (User user in response.Users)
             {
-                var runConfig = ConfigurationHandler.RuntimeConfig[GuildId];
+                twitchUsers.Add(new TwitchUser(user.Id, user.Login));
+            }
 
-                var twitchUsers = new List<TwitchUser>();
-
-                twitchUsers.Add(new TwitchUser(runConfig.ChannelOwner.Id, runConfig.ChannelOwner.Login));
-
-                var response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
-
-                foreach (var user in response.Users)
-                    twitchUsers.Add(new TwitchUser(user.Id, user.Login));
-
-                return new ReadOnlyCollection<TwitchUser>(twitchUsers);
-            });
-
-            return task.ToAsyncEnumerable();
+            yield return twitchUsers;
         }
+        
         public IDisposable EnterTypingState(RequestOptions options = null)
         {
             return null;
@@ -149,19 +145,11 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public Task<IUserMessage> SendFileAsync(string filePath, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, bool isSpoiler = false, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None, PollProperties poll = null)
             => throw new NotImplementedException();
-        public Task<IUserMessage> SendFileAsync(string filePath, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, bool isSpoiler = false, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None)
-            => throw new NotImplementedException();
         public Task<IUserMessage> SendFileAsync(Stream stream, string filename, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, bool isSpoiler = false, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None, PollProperties poll = null)
-            => throw new NotImplementedException();
-        public Task<IUserMessage> SendFileAsync(Stream stream, string filename, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, bool isSpoiler = false, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None)
             => throw new NotImplementedException();
         public Task<IUserMessage> SendFileAsync(FileAttachment attachment, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None, PollProperties poll = null)
             => throw new NotImplementedException();
-        public Task<IUserMessage> SendFileAsync(FileAttachment attachment, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None)
-            => throw new NotImplementedException();
         public Task<IUserMessage> SendFilesAsync(IEnumerable<FileAttachment> attachments, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None, PollProperties poll = null)
-            => throw new NotImplementedException();
-        public Task<IUserMessage> SendFilesAsync(IEnumerable<FileAttachment> attachments, string text = null, bool isTTS = false, Embed embed = null, RequestOptions options = null, AllowedMentions allowedMentions = null, MessageReference messageReference = null, MessageComponent components = null, ISticker[] stickers = null, Embed[] embeds = null, MessageFlags flags = MessageFlags.None)
             => throw new NotImplementedException();
 
         public Task TriggerTypingAsync(RequestOptions options = null)

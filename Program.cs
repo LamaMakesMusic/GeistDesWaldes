@@ -4,6 +4,7 @@ using GeistDesWaldes.Configuration;
 using GeistDesWaldes.TwitchIntegration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -92,10 +93,24 @@ namespace GeistDesWaldes
         private void LogBootInfo()
         {
             LogHandler.LogRaw(Launcher.ExecutingAssemblyName);
-            LogHandler.LogRaw(Launcher.BaseDirectory);
+            LogHandler.LogRaw($"{nameof(Launcher.BaseDirectory)}: {Launcher.BaseDirectory}");
             LogHandler.LogRaw("");
             LogHandler.LogRaw($"Starting Parameters: Log Level ('{Launcher.LOG_LEVEL_ID}') - {Launcher.LogLevel} | Console Only ('{Launcher.CONSOLE_OUTPUT_ONLY_ID}') - {Launcher.ConsoleOutputOnly}");
             LogHandler.LogRaw("");
+            LogHandler.LogRaw("Dependencies");
+            LogHandler.LogRaw($"{nameof(Launcher.FfmpegPath)}: {Launcher.FfmpegPath}");
+            
+            CheckDependency("opus.so");
+            CheckDependency("libopus.so");
+            CheckDependency("opus");
+            CheckDependency("libopus");
+        }
+
+        private void CheckDependency(string filename)
+        {
+            bool result = File.Exists($"{Launcher.BaseDirectory}{filename}");
+            
+            LogHandler.LogRaw($"{filename}: {result}");
         }
         
 

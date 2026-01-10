@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using GeistDesWaldes.Attributes;
 using TwitchLib.Api.Core.Enums;
 using TwitchLib.Api.Helix.Models.Games;
-using TwitchLib.Api.Helix.Models.Streams.GetStreams;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
