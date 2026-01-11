@@ -28,13 +28,13 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
         {
             base.OnServerStart(source, e);
 
-            Task.Run(Initialize).GetAwaiter().GetResult();
+            Initialize().SafeAsync<TwitchLivestreamIntervalActionHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(() => CheckIntegrity()).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<TwitchLivestreamIntervalActionHandler>(_Server.LogHandler);
         }
 
         private async Task Initialize()

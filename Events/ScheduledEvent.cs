@@ -8,6 +8,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using GeistDesWaldes.Misc;
 
 namespace GeistDesWaldes.Events
 {
@@ -53,7 +54,7 @@ namespace GeistDesWaldes.Events
 
             if (DateTime.Compare(ExecutionTime, DateTime.Now) < 0)
             {
-                Task.Run(RescheduleToNextRepetition);
+                RescheduleToNextRepetition().SafeAsync<ScheduledEvent>(CommandToExecute?.Server?.LogHandler);
                 return;
             }
 

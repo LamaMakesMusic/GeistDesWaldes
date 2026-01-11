@@ -36,10 +36,17 @@ namespace GeistDesWaldes.Users
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeForestUserHandler).GetAwaiter().GetResult();
-            Task.Run(EnsureBotUser).GetAwaiter().GetResult();
+            StartUpAsync().SafeAsync<ForestUserHandler>(_Server.LogHandler);
+        }
+
+        private async Task StartUpAsync()
+        {
+            await InitializeForestUserHandler();
+            await EnsureBotUser();
+            
             StartRoutines();
         }
+        
         internal override void OnServerShutdown(object source, EventArgs e)
         {
             base.OnServerShutdown(source, e);
@@ -52,7 +59,7 @@ namespace GeistDesWaldes.Users
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<ForestUserHandler>(_Server.LogHandler);
         }
 
         private async Task CheckIntegrity()

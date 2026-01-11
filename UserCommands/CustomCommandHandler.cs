@@ -28,13 +28,13 @@ namespace GeistDesWaldes.UserCommands
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeCustomCommandHandler).GetAwaiter().GetResult();
+            InitializeCustomCommandHandler().SafeAsync<CustomCommandHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnServerStart(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<CustomCommandHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeCustomCommandHandler()

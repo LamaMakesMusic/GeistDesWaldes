@@ -2,13 +2,9 @@
 using Discord.Commands;
 using GeistDesWaldes.Configuration;
 using GeistDesWaldes.Dictionaries;
-using HtmlAgilityPack;
 using System;
-using System.IO;
 using System.Net.Http;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace GeistDesWaldes.Misc
@@ -97,27 +93,6 @@ namespace GeistDesWaldes.Misc
             }
         }
 
-        private static async ValueTask<Stream> IPv4ConnectAsync(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
-        {
-            // By default, we create dual-mode sockets:
-            // Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-
-            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            socket.NoDelay = true;
-
-            try
-            {
-                await socket.ConnectAsync(context.DnsEndPoint, cancellationToken).ConfigureAwait(false);
-                return new NetworkStream(socket, ownsSocket: true);
-            }
-            catch
-            {
-                socket.Dispose();
-                throw;
-            }
-        }
-
-
         public static async Task<string> DownloadWebString(string url)
         {
             try
@@ -131,35 +106,43 @@ namespace GeistDesWaldes.Misc
                 return null;
             }
         }
-
-        public static async Task<HtmlDocument> DownloadWebDocument(string url)
-        {
-            await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(DownloadWebDocument), $"#QUERY: {url}"));
-
-            HtmlWeb web = new();
-            HtmlDocument doc = null;
-
-            for (int i = 3; i > 0; i--)
-            {
-                doc = await web.LoadFromWebAsync(url);
-
-                if (web.StatusCode == System.Net.HttpStatusCode.OK)
-                    break;
-
-                await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(DownloadWebDocument), $"{web.StatusCode}: Retrying... ({url})"));
-
-                await Task.Delay(1000);
-            }
-
-            // doc.DisableServerSideCode = false
-
-            return doc;
-        }
-    
     
         public static string GetFullCommandName(this Optional<CommandInfo> command)
         {
             return command.IsSpecified ? command.Value.Aliases?.Count > 0 ? command.Value.Aliases[0] : command.Value.Name : "null";
+        }
+
+
+        extension(Task task)
+        {
+            public void SafeAsync<TContext>(ulong guildId, Action continueWith = null)
+            {
+                LogHandler logger = null;
+                
+                if (Launcher.Instance?.Servers?.TryGetValue(guildId, out Server server) ?? false)
+                    logger = server.LogHandler;
+                
+                task.SafeAsync<TContext>(logger, continueWith);
+            }
+
+            public async void SafeAsync<TContext>(LogHandler logger, Action continueWith = null)
+            {
+                try
+                {
+                    await task;
+                    continueWith?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    if (logger == null)
+                    {
+                        logger = Launcher.Instance.LogHandler;
+                        await logger.Log(new LogMessage(LogSeverity.Warning, nameof(SafeAsync), "Logger is missing! Falling back to general log!"));
+                    }
+                    
+                    await logger.Log(new LogMessage(LogSeverity.Error, typeof(TContext).Name, string.Empty, ex));
+                }
+            }
         }
     }
 }

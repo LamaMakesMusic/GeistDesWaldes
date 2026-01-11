@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using GeistDesWaldes.Misc;
 using TwitchLib.Api;
 using TwitchLib.Api.Core;
 using TwitchLib.Api.Helix.Models.Chat;
@@ -186,7 +187,7 @@ namespace GeistDesWaldes.TwitchIntegration
         }
         private void OnShutdown(object source, EventArgs args)
         {
-            Task.Run(() => Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Stopping Twitch Client..."))).GetAwaiter().GetResult();
+            Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Stopping Twitch Client...")).SafeAsync<TwitchIntegrationHandler>(Launcher.Instance.LogHandler);
 
             TwitchAuthentication.OnLog -= LogEventHandler;
             
@@ -254,9 +255,9 @@ namespace GeistDesWaldes.TwitchIntegration
         }
 
 
-        private void LogEventHandler(object o, LogEventArgs e)
+        private static void LogEventHandler(object o, LogEventArgs e)
         {
-            Launcher.Instance.LogHandler.Log(new LogMessage((LogSeverity)e.Severity, e.Source, e.Message, e.Exception), e.Color);
+            LogToMain(e.Source, e.Message, (LogSeverity)e.Severity, e.Color, e.Exception);
         }
 
         public JoinedChannel GetChannelObject(string channelName)
@@ -355,7 +356,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public static void LogToMain(string source, string message, LogSeverity severity = LogSeverity.Info, int consoleColor = -1, Exception exception = null)
         {
-            if (consoleColor < 0 || consoleColor > 15)
+            if (consoleColor is < 0 or > 15)
             {
                 switch (severity)
                 {
@@ -375,11 +376,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 }
             }
 
-            Task.Run(async () =>
-            {
-                await Launcher.Instance.LogHandler.Log(new LogMessage(severity, source, message, exception), consoleColor);
-            });
+            Launcher.Instance.LogHandler.Log(new LogMessage(severity, source, message, exception), consoleColor).SafeAsync<TwitchIntegrationHandler>(Launcher.Instance.LogHandler);
         }
-
     }
 }

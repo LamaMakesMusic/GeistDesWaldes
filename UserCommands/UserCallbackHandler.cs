@@ -24,13 +24,13 @@ namespace GeistDesWaldes.UserCommands
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeUserCallbackHandler).GetAwaiter().GetResult();
+            InitializeUserCallbackHandler().SafeAsync<UserCallbackHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<UserCallbackHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeUserCallbackHandler()

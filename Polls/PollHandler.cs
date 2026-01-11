@@ -13,7 +13,7 @@ namespace GeistDesWaldes.Polls
 {
     public class PollHandler : BaseHandler
     {
-        private List<ChannelPoll> _currentPolls = new List<ChannelPoll>();
+        private List<ChannelPoll> _currentPolls = new();
         private readonly object _pollsLock = new object();
 
         private string _pollList = "-";
@@ -31,13 +31,13 @@ namespace GeistDesWaldes.Polls
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializePollHandler).GetAwaiter().GetResult();
+            InitializePollHandler().SafeAsync<PollHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<PollHandler>(_Server.LogHandler);
         }
 
         private async Task InitializePollHandler()
@@ -258,35 +258,39 @@ namespace GeistDesWaldes.Polls
                 return _pollList;
         }
 
-        public Task UpdatePollList()
+        private Task UpdatePollList()
         {
-            return Task.Run(() =>
-            {
-                StringBuilder builder = new StringBuilder();
+            StringBuilder builder = new();
 
-                lock (_pollsLock)
+            lock (_pollsLock)
+            {
+                foreach (ChannelPoll poll in _currentPolls)
                 {
-                    for (int i = 0; i < _currentPolls?.Count; i++)
+                    if (poll?.Polls == null || poll.Polls.Count == 0)
+                        continue;
+                    
+                    foreach (Poll p in poll.Polls)
                     {
-                        if (_currentPolls[i].Polls?.Count > 0)
-                        {
-                            for (int j = 0; j < _currentPolls[i].Polls.Count; j++)
-                                builder.AppendLine(_currentPolls[i].Polls[j].HeaderToString());
-                        }
+                        builder.AppendLine(p.HeaderToString());
                     }
                 }
+            }
 
-                lock (_pollListLock)
-                    _pollList = builder.Length > 0 ? builder.ToString() : "-";
-            });
+            lock (_pollListLock)
+            {
+                _pollList = builder.Length > 0 ? builder.ToString() : "-";
+            }
+
+            return Task.CompletedTask;
         }
 
 
-        public Task SavePollsToFile()
+        private Task SavePollsToFile()
         {
             return GenericXmlSerializer.SaveAsync<List<ChannelPoll>>(_Server.LogHandler, _currentPolls, POLLS_FILE_NAME, _Server.ServerFilesDirectoryPath);
         }
-        public async Task LoadPollsFromFile()
+
+        private async Task LoadPollsFromFile()
         {
             List<ChannelPoll> loadedPolls = await GenericXmlSerializer.LoadAsync<List<ChannelPoll>>(_Server.LogHandler, POLLS_FILE_NAME, _Server.ServerFilesDirectoryPath);
 

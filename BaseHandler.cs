@@ -5,9 +5,9 @@ namespace GeistDesWaldes
 {
     public abstract class BaseHandler
     {
-        public readonly Server _Server;
+        protected readonly Server _Server;
 
-        public BaseHandler(Server server)
+        protected BaseHandler(Server server)
         {
             _Server = server;
             _Server.OnServerStart += OnServerStart;

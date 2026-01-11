@@ -26,13 +26,13 @@ namespace GeistDesWaldes.Citations
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeCitationsHandler).GetAwaiter().GetResult();
+            InitializeCitationsHandler().SafeAsync<CitationsHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(() => CheckIntegrity()).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<CitationsHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeCitationsHandler()

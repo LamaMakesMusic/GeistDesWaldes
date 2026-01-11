@@ -30,8 +30,7 @@ namespace GeistDesWaldes.Events
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeScheduleHandler).GetAwaiter().GetResult();
-            StartDailyKickOff();
+            InitializeScheduleHandler().SafeAsync<ScheduleHandler>(_Server.LogHandler, StartDailyKickOff);
         }
         internal override void OnServerShutdown(object source, EventArgs e)
         {
@@ -46,7 +45,7 @@ namespace GeistDesWaldes.Events
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<ScheduleHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeScheduleHandler()

@@ -24,7 +24,7 @@ namespace GeistDesWaldes.Currency
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeCurrencyHandler).GetAwaiter().GetResult();
+            InitializeCurrencyHandler().SafeAsync<CurrencyHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeCurrencyHandler()

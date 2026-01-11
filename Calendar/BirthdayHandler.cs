@@ -30,8 +30,7 @@ namespace GeistDesWaldes.Calendar
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeBirthdayHandler).GetAwaiter().GetResult();
-            StartBirthdayWatchdog();
+            InitializeBirthdayHandler().SafeAsync<BirthdayHandler>(_Server.LogHandler, StartBirthdayWatchdog);
         }
         internal override void OnServerShutdown(object source, EventArgs e)
         {
@@ -43,7 +42,7 @@ namespace GeistDesWaldes.Calendar
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<BirthdayHandler>(_Server.LogHandler);
         }
 
 

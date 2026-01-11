@@ -44,8 +44,7 @@ namespace GeistDesWaldes.Calendar
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeHolidayHandler).GetAwaiter().GetResult();
-            StartHolidayWatchdog();
+            InitializeHolidayHandler().SafeAsync<HolidayHandler>(_Server.LogHandler, StartHolidayWatchdog);
         }
         internal override void OnServerShutdown(object source, EventArgs e)
         {
@@ -57,7 +56,7 @@ namespace GeistDesWaldes.Calendar
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<HolidayHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeHolidayHandler()

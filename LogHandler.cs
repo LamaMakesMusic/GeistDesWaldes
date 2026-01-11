@@ -29,86 +29,73 @@ namespace GeistDesWaldes
         public Task OnLog(LogMessage message) => Log(message, -1);
         public Task Log(LogMessage message, int consoleColor = -1)
         {
-            return Task.Run(() =>
+            string logLine = $"{DateTime.Now,-19} [{message.Severity,8}] {message.Source,30}: {message.Message} {message.Exception}";
+
+            lock (_logListLocker)
+                _logList.AppendLine(logLine);
+
+            if ((int)message.Severity > Launcher.LogLevel)
+                return Task.CompletedTask;
+
+            lock (_logConsoleLocker)
             {
-                string logLine = $"{DateTime.Now,-19} [{message.Severity,8}] {message.Source,30}: {message.Message} {message.Exception}";
-
-
-                lock (_logListLocker)
-                    _logList.AppendLine(logLine);
-
-
-                if ((int)message.Severity > Launcher.LogLevel)
-                    return;
-
-
-                lock (_logConsoleLocker)
+                if (consoleColor is < 0 or > 15)
                 {
-                    if (consoleColor < 0 || consoleColor > 15)
+                    Console.ForegroundColor = message.Severity switch
                     {
-                        switch (message.Severity)
-                        {
-                            case LogSeverity.Critical:
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                break;
-                            case LogSeverity.Error:
-                                Console.ForegroundColor = ConsoleColor.DarkRed;
-                                break;
-                            case LogSeverity.Warning:
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                break;
-                            case LogSeverity.Info:
-                                Console.ForegroundColor = ConsoleColor.White;
-                                break;
-                            case LogSeverity.Verbose:
-                                Console.ForegroundColor = ConsoleColor.Gray;
-                                break;
-                            case LogSeverity.Debug:
-                                Console.ForegroundColor = ConsoleColor.DarkGray;
-                                break;
-                        }
-                    }
-                    else
-                        Console.ForegroundColor = (ConsoleColor)consoleColor;
-
-                    Console.WriteLine($"[{(_server != null ? _server.Guild : "Main"),24}] {logLine}");
-                    Console.ResetColor();
+                        LogSeverity.Critical => ConsoleColor.Red,
+                        LogSeverity.Error => ConsoleColor.DarkRed,
+                        LogSeverity.Warning => ConsoleColor.Yellow,
+                        LogSeverity.Info => ConsoleColor.White,
+                        LogSeverity.Verbose => ConsoleColor.Gray,
+                        LogSeverity.Debug => ConsoleColor.DarkGray,
+                        _ => Console.ForegroundColor
+                    };
                 }
+                else
+                    Console.ForegroundColor = (ConsoleColor)consoleColor;
 
-            });
+                Console.WriteLine($"[{(_server != null ? _server.Guild : "Main"),24}] {logLine}");
+                Console.ResetColor();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task SaveToLogFile(string directory)
         {
-            return Task.Run(() =>
+            lock (_logListLocker)
             {
                 if (_logList == null || _logList.Length == 0)
-                    return;
+                    return Task.CompletedTask;
+            }
 
-                try
+            try
+            {
+                FileInfo file = new(Path.Combine(directory, $"{LOG_FILE_NAME}.log"));
+
+                bool overwriteFile = (!file.Exists || (ConfigurationHandler.Shared.MaxLogFileSizeInMB < ((file.Length / 1024f) / 1024f)));
+
+                using (FileStream stream = new(file.FullName, (overwriteFile ? FileMode.Create : FileMode.Append), FileAccess.Write, FileShare.Read))
                 {
-                    FileInfo file = new FileInfo(Path.Combine(directory, $"{LOG_FILE_NAME}.log"));
-
-                    bool overwriteFile = (!file.Exists || (ConfigurationHandler.Shared.MaxLogFileSizeInMB < ((file.Length / 1024f) / 1024f)));
-
-                    using (var stream = new FileStream(file.FullName, (overwriteFile ? FileMode.Create : FileMode.Append), FileAccess.Write, FileShare.Read))
+                    using (StreamWriter writer = new(stream, Encoding.Unicode))
                     {
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.Unicode))
-                        {
+                        lock (_logListLocker)
                             writer.Write(_logList.ToString());
-                        };
-                    }
-
-                    Log(new LogMessage(LogSeverity.Verbose, nameof(SaveToLogFile), "Saved Log File!"));
-                }
-                catch (Exception e)
-                {
-                    Log(new LogMessage(LogSeverity.Error, nameof(SaveToLogFile), $"Could not Append to Log File in '{directory}'!", exception: e));
+                    };
                 }
 
-                lock (_logListLocker)
-                    _logList.Clear();
-            });
+                Log(new LogMessage(LogSeverity.Verbose, nameof(SaveToLogFile), "Saved Log File!"));
+            }
+            catch (Exception e)
+            {
+                Log(new LogMessage(LogSeverity.Error, nameof(SaveToLogFile), $"Could not Append to Log File in '{directory}'!", exception: e));
+            }
+
+            lock (_logListLocker)
+                _logList.Clear();
+            
+            return Task.CompletedTask;
         }
 
 

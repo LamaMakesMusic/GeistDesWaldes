@@ -82,7 +82,7 @@ namespace GeistDesWaldes
             ServerFilesDirectoryPath = Path.GetFullPath(Path.Combine(ConfigurationHandler.ServerFilesDirectory, GuildId.ToString()));
 
             LogHandler = new LogHandler(this);
-            Launcher.OnShutdown += Shutdown;
+            Launcher.OnShutdown += OnShutdown;
 
             _services = new ServiceCollection().AddSingleton<ILogger<EventSubWebsocketClient>>(LogHandler).AddSingleton(this).AddSingleton(LogHandler).AddTwitchLibEventSubWebsockets().BuildServiceProvider();
 
@@ -149,12 +149,12 @@ namespace GeistDesWaldes
 
                 await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
 
-                OnServerStart.Invoke(this, EventArgs.Empty);
+                OnServerStart?.Invoke(this, EventArgs.Empty);
 
                 await Task.Delay(3000);
 
                 await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Start), $"==== {nameof(OnCheckIntegrity)} ===="));
-                OnCheckIntegrity.Invoke(this, EventArgs.Empty);
+                OnCheckIntegrity?.Invoke(this, EventArgs.Empty);
 
                 await Task.Delay(4000);
 
@@ -172,11 +172,11 @@ namespace GeistDesWaldes
                 await LogHandler.Log(new LogMessage(LogSeverity.Critical, nameof(Start), "Failed!", ex));
             }
         }
-        public void Shutdown(object sender, EventArgs args)
+        public void OnShutdown(object sender, EventArgs args)
         {
-            Task.Run(() => TwitchIntegrationHandler.Instance.StopListening(this));
+            TwitchIntegrationHandler.Instance.StopListening(this);
 
-            OnServerShutdown.Invoke(this, null);
+            OnServerShutdown?.Invoke(this, EventArgs.Empty);
 
             LogHandler.SaveToLogFile(ServerFilesDirectoryPath);
         }
@@ -184,8 +184,8 @@ namespace GeistDesWaldes
 
         private async Task OnClientSetupComplete()
         {
-            if ((await UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.DiscordCallbackTypes.OnClientReady)).ResultValue is CustomCommand callback && callback != null)
-                await callback.Execute(null, new string[] { DateTime.Now.ToString() });
+            if ((await UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.DiscordCallbackTypes.OnClientReady)).ResultValue is { } callback)
+                await callback.Execute(null, [DateTime.Now.ToString(CultureInfo)]);
         }
 
 

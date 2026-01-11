@@ -12,7 +12,7 @@ namespace GeistDesWaldes
         public static readonly Random Random = new();
 
         public static event EventHandler OnShutdown;
-        public static Program Instance;
+        public static Program Instance { get; private set; }
 
         private static bool _requestedShutdown = false;
         private static bool _isRestart = false;
@@ -78,7 +78,7 @@ namespace GeistDesWaldes
                 }
 
                 // Invoke shutdown callbacks
-                OnShutdown.Invoke(Instance, null);
+                OnShutdown?.Invoke(Instance, EventArgs.Empty);
 
                 // Shutdown grace period
                 await ScreenTimer("Waiting some more time for processes to cancel... proceeding", 10);

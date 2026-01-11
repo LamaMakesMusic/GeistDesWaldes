@@ -43,8 +43,7 @@ namespace GeistDesWaldes.Audio
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeAudioHandler).GetAwaiter().GetResult(); 
-            StartAudioQueueProcessing();
+            InitializeAudioHandler().SafeAsync<AudioHandler>(_Server.LogHandler, StartAudioQueueProcessing);
         }
         internal override void OnServerShutdown(object source, EventArgs e)
         {
@@ -60,7 +59,7 @@ namespace GeistDesWaldes.Audio
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<AudioHandler>(_Server.LogHandler);
         }
 
         private async Task CheckIntegrity()

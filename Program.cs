@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using GeistDesWaldes.Misc;
 using TwitchLib.Client.Models;
 
 namespace GeistDesWaldes
@@ -65,7 +66,7 @@ namespace GeistDesWaldes
 
             await ConfigurationHandler.LoadSharedConfigFromFile();
 
-            var loginAndConnect = Task.Run(async () =>
+            _ = Task.Run(async () =>
             {
                 // Login
                 await DiscordClient.LoginAsync(TokenType.Bot, ConfigurationHandler.Shared.Secrets.DiscordBotLoginToken);
@@ -74,7 +75,7 @@ namespace GeistDesWaldes
                 await DiscordClient.StartAsync();
             });
 
-            var twitchLogin = Task.Run(TwitchIntegrationHandler.InitializeTwitchIntegration);
+            _ = Task.Run(TwitchIntegrationHandler.InitializeTwitchIntegration);
 
             // Loops
             _logTask = Task.Run(SaveLogFileLoop);
@@ -112,25 +113,29 @@ namespace GeistDesWaldes
             
             LogHandler.LogRaw($"{filename}: {result}");
         }
-        
 
-        private void OnShutdown(object instance, EventArgs args)
+
+        private void OnShutdown(object src, EventArgs e)
         {
-            Task.Run(async () =>
+            OnShutdownAsync().SafeAsync<Program>(LogHandler);
+        }
+        private async Task OnShutdownAsync()
+        {
+            await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdownAsync), "Stopping Loops..."));
+            _cancelLogLoopSource?.Cancel();
+            _cancelServerWatchdogSource?.Cancel();
+
+            await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdownAsync), "Stopping Discord Client..."));
+            if (DiscordClient != null)
             {
-                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Stopping Loops..."));
-                _cancelLogLoopSource?.Cancel();
-                _cancelServerWatchdogSource?.Cancel();
+                await DiscordClient.StopAsync();
+                await DiscordClient.LogoutAsync();
+            }
+            
+            await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdownAsync), "Saving Config..."));
+            await ConfigurationHandler.SaveAllConfigsToFile();
 
-                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Stopping Discord Client..."));
-                await DiscordClient?.StopAsync();
-                await DiscordClient?.LogoutAsync();
-
-                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Saving Config..."));
-                await ConfigurationHandler.SaveAllConfigsToFile();
-
-                await LogHandler.SaveToLogFile(Launcher.CommonFilesPath);
-            }).GetAwaiter().GetResult();
+            await LogHandler.SaveToLogFile(Launcher.CommonFilesPath);
         }
 
         private async Task OnClientReady()
@@ -152,10 +157,10 @@ namespace GeistDesWaldes
             if (Servers.ContainsKey(guild.Id))
                 return;
 
-            Server server = new Server(guild.Id, DiscordClient);
+            Server server = new(guild.Id, DiscordClient);
             Servers.Add(guild.Id, server);
 
-            Task t = Task.Run(server.Start);
+            server.Start().SafeAsync<Program>(LogHandler);
             
             await Task.Delay(10);
         }
@@ -167,21 +172,18 @@ namespace GeistDesWaldes
 
             await LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(RestartServer), $"Restarting Server {server.GuildId}!"));
 
-            if (!Task.Factory.StartNew(() => server.Shutdown(this, null)).Wait(9000))
-            {
-                await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(RestartServer), $"Timed out waiting for server shutdown {server.GuildId}!"));
-            }
+            server.OnShutdown(this, EventArgs.Empty);
 
-            server = new Server(server.GuildId, DiscordClient);
-            Servers[server.GuildId] = server;
+            Server nServer = new(server.GuildId, DiscordClient);
+            Servers[nServer.GuildId] = nServer;
 
-            Task t = Task.Run(server.Start);
+            nServer.Start().SafeAsync<Program>(LogHandler);
         }
 
 
         public async Task HandleCommandAsync(IMessage arg)
         {
-            if (arg == null || arg.Author.IsBot || !(arg is IUserMessage msg))
+            if (arg == null || arg.Author.IsBot || arg is not IUserMessage msg)
                 return;
 
             if (msg.Content == null || msg.Content.Trim().Length < 2)
@@ -189,17 +191,17 @@ namespace GeistDesWaldes
 
             IGuild guild = null;
             
-            if (msg.Channel is IGuildChannel gChannel && gChannel != null)
+            if (msg.Channel is IGuildChannel gChannel)
                 guild = gChannel.Guild;
 
             if (guild == null)
             {
-                if (msg.Author is IGuildUser gUser && gUser != null)
+                if (msg.Author is IGuildUser gUser)
                     guild = gUser.Guild;
 
                 if (guild == null)
                 {
-                    if (msg.Channel is TwitchMessageChannel tMsg && tMsg != null)
+                    if (msg.Channel is TwitchMessageChannel tMsg)
                         guild = DiscordClient.GetGuild(tMsg.GuildId);
 
                     if (guild == null)
@@ -210,7 +212,7 @@ namespace GeistDesWaldes
                 }
             }
 
-            Task t = Task.Run(() => Servers[guild.Id].HandleCommandAsync(msg));
+            Servers[guild.Id].HandleCommandAsync(msg).SafeAsync<Program>(LogHandler);
         }
 
         public SocketGuildUser GetBotUserDiscord(Server server)

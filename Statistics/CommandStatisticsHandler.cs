@@ -26,7 +26,7 @@ namespace GeistDesWaldes.Statistics
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeCommandStatisticsHandler).GetAwaiter().GetResult();
+            InitializeCommandStatisticsHandler().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeCommandStatisticsHandler()
@@ -41,7 +41,7 @@ namespace GeistDesWaldes.Statistics
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(() => CheckIntegrity()).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
         }
 
         private async Task CheckIntegrity(bool skipFix = false)
@@ -71,16 +71,13 @@ namespace GeistDesWaldes.Statistics
         {
             base.OnServerShutdown(source, e);
 
-            Task.Run(SaveCommandStatisticsToFile).GetAwaiter().GetResult();
+            SaveCommandStatisticsToFile().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
         }
 
 
-        public Task SaveCommandStatisticsToFile()
+        private Task SaveCommandStatisticsToFile()
         {
-            _commandStatistics.Sort((s1, s2) =>
-            {
-                return s1.Id.CompareTo(s2.Id);
-            });
+            _commandStatistics.Sort((s1, s2) => s1.Id.CompareTo(s2.Id, StringComparison.Ordinal));
 
             return GenericXmlSerializer.SaveAsync<List<CommandStatistic>>(_Server.LogHandler, _commandStatistics, COMMANDS_FILE_NAME, _Server.ServerFilesDirectoryPath);
         }

@@ -16,8 +16,8 @@ namespace GeistDesWaldes.CommandMeta
 {
     public class CommandInfoHandler : BaseHandler
     {
-        public List<CommandMetaInfo> FactoryCommands;
-        public List<CommandMetaInfo> CustomCommands;
+        private readonly List<CommandMetaInfo> FactoryCommands;
+        private readonly List<CommandMetaInfo> CustomCommands;
 
         public ChannelMessage CommandPageLinkMessage;
         public ChannelMessage CustomCommandHelpMessage;
@@ -30,8 +30,8 @@ namespace GeistDesWaldes.CommandMeta
 
         public CommandInfoHandler(Server server) : base(server)
         {
-            FactoryCommands = new List<CommandMetaInfo>();
-            CustomCommands = new List<CommandMetaInfo>();
+            FactoryCommands = [];
+            CustomCommands = [];
         }
 
 
@@ -39,13 +39,13 @@ namespace GeistDesWaldes.CommandMeta
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeCommandInfoHandler).GetAwaiter().GetResult();
+            InitializeCommandInfoHandler().SafeAsync<CommandInfoHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<CommandInfoHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeCommandInfoHandler()
@@ -69,144 +69,151 @@ namespace GeistDesWaldes.CommandMeta
 
         private Task CollectCommandInfo()
         {
-            return Task.Run(() =>
+            var types = Assembly.GetExecutingAssembly().GetTypes();
+
+            Dictionary<Type, List<PreconditionAttribute>> classPreconditions = new();
+            Dictionary<Type, List<string>> classGroups = new();
+
+            //Get Precondition Attributes on classes
+            foreach (Type type in types)
             {
-                var types = Assembly.GetExecutingAssembly().GetTypes();
+                if (type.BaseType != (typeof(ModuleBase<ICommandContext>)) && type.BaseType != (typeof(ModuleBase<CommandContext>)) && type.BaseType != (typeof(ModuleBase<SocketCommandContext>)))
+                    continue;
 
-                Dictionary<Type, List<PreconditionAttribute>> classPreconditions = new Dictionary<Type, List<PreconditionAttribute>>();
-                Dictionary<Type, List<string>> classGroups = new Dictionary<Type, List<string>>();
-
-                //Get Precondition Attributes on classes
-                foreach (Type type in types)
+                foreach (Attribute attribute in type.GetCustomAttributes())
                 {
-                    if (type.BaseType != (typeof(ModuleBase<ICommandContext>)) && type.BaseType != (typeof(ModuleBase<CommandContext>)) && type.BaseType != (typeof(ModuleBase<SocketCommandContext>)))
-                        continue;
-
-                    foreach (Attribute attribute in type.GetCustomAttributes())
+                    switch (attribute)
                     {
-                        if (attribute is PreconditionAttribute pAttr)
-                        {
+                        case PreconditionAttribute pAttr:
                             if (classPreconditions.ContainsKey(type))
                                 classPreconditions[type].Add(pAttr);
                             else
-                                classPreconditions[type] = new List<PreconditionAttribute>() { pAttr };
-                        }
-                        else if (attribute is GroupAttribute gAttr)
-                        {
-                            if (classGroups.ContainsKey(type))
-                                classGroups[type][0] += $"{COMMAND_ALIAS_DIVIDER}{gAttr.Prefix}"; // Add as alias
+                                classPreconditions[type] = [pAttr];
+                            break;
+                        
+                        case GroupAttribute gAttr:
+                            if (classGroups.TryGetValue(type, out List<string> group))
+                            {
+                                group[0] += $"{COMMAND_ALIAS_DIVIDER}{gAttr.Prefix}"; // Add as alias
+                            }
                             else
-                                classGroups[type] = new List<string>() { gAttr.Prefix };
-                        }
-                        else if (attribute is AliasAttribute aAttr)
-                        {
-                            if (classGroups.ContainsKey(type))
+                            {
+                                classGroups[type] = [gAttr.Prefix];
+                            }
+                            break;
+                        
+                        case AliasAttribute aAttr:
+                            if (classGroups.TryGetValue(type, out List<string> classGroup))
                             {
                                 // Add alias for command
                                 foreach (string a in aAttr.Aliases)
-                                    classGroups[type][0] += $"{COMMAND_ALIAS_DIVIDER}{a}";
-                            }
-                        }
-                    }
-                }
-
-                //Get Precondition Attributes on methods
-                foreach (Type type in types)
-                {
-                    List<CommandMetaInfo> classCommands = new List<CommandMetaInfo>();
-
-                    foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-                    {
-                        CommandMetaInfo entry = null;
-
-                        foreach (var attribute in method.GetCustomAttributes())
-                        {
-                            if (attribute is CommandAttribute cAttr)
-                            {
-                                if (entry == null)
-                                    entry = new CommandMetaInfo() { Name = cAttr.Text };
-                                else
-                                    entry.Name = cAttr.Text;
-                            }
-                            else if (attribute is SummaryAttribute sAttr)
-                            {
-                                if (entry == null)
-                                    entry = new CommandMetaInfo() { Summary = sAttr.Text };
-                                else
-                                    entry.Summary = sAttr.Text;
-                            }
-                            else if (attribute is PreconditionAttribute pAttr)
-                            {
-                                if (entry == null)
-                                    entry = new CommandMetaInfo() { Preconditions = new List<PreconditionAttribute>() { pAttr } };
-                                else
-                                    entry.Preconditions.Add(pAttr);
-                            }
-                        }
-
-                        if (entry != null)
-                        {
-                            if (classPreconditions.ContainsKey(type))
-                                entry.Preconditions.AddRange(classPreconditions[type]);
-
-                            if (classGroups.ContainsKey(type))
-                                entry.Groups.AddRange(classGroups[type]);
-
-                            if (type.IsNestedPublic)
-                            {
-                                Type tempType = type;
-
-                                // Check nesting until certain height, or top is reached
-                                for (int i = 0; i < 5; i++)
                                 {
-                                    Type enclosingType = null;
-
-                                    //Find enclosing type
-                                    foreach (var t in types)
-                                    {
-                                        foreach (var nt in t.GetNestedTypes())
-                                        {
-                                            if (nt == tempType)
-                                            {
-                                                enclosingType = t;
-                                                break;
-                                            }
-                                        }
-
-                                        if (enclosingType != null)
-                                            break;
-                                    }
-
-                                    if (enclosingType == null)
-                                        break;
-
-                                    //Get Preconditions from enclosing class
-                                    if (classPreconditions.ContainsKey(enclosingType))
-                                        entry.Preconditions.InsertRange(0, classPreconditions[enclosingType]);
-
-                                    //Get Groups from enclosing class
-                                    if (classGroups.ContainsKey(enclosingType))
-                                        entry.Groups.InsertRange(0, classGroups[enclosingType]);
-
-                                    tempType = enclosingType;
+                                    classGroup[0] += $"{COMMAND_ALIAS_DIVIDER}{a}";
                                 }
                             }
+                            break;
+                    }
+                }
+            }
 
-                            entry.Parameters.AddRange(method.GetParameters());
-                            entry.CreateRuntimeParameters();
+            //Get Precondition Attributes on methods
+            foreach (Type type in types)
+            {
+                List<CommandMetaInfo> classCommands = new();
 
-                            classCommands.Add(entry);
+                foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                {
+                    CommandMetaInfo entry = null;
+
+                    foreach (Attribute attribute in method.GetCustomAttributes())
+                    {
+                        switch (attribute)
+                        {
+                            case CommandAttribute cAttr:
+                                if (entry == null)
+                                    entry = new CommandMetaInfo { Name = cAttr.Text };
+                                else
+                                    entry.Name = cAttr.Text;    
+                                break;
+                            
+                            case SummaryAttribute sAttr:
+                                if (entry == null)
+                                    entry = new CommandMetaInfo { Summary = sAttr.Text };
+                                else
+                                    entry.Summary = sAttr.Text;
+                                break;
+                            
+                            case PreconditionAttribute pAttr:
+                                if (entry == null)
+                                    entry = new CommandMetaInfo { Preconditions = [pAttr] };
+                                else
+                                    entry.Preconditions.Add(pAttr);
+                                break;
                         }
                     }
 
+                    if (entry == null)
+                        continue;
 
-                    FactoryCommands.AddRange(classCommands);
+                    if (classPreconditions.TryGetValue(type, out List<PreconditionAttribute> preconditions))
+                        entry.Preconditions.AddRange(preconditions);
+
+                    if (classGroups.TryGetValue(type, out List<string> groups))
+                        entry.Groups.AddRange(groups);
+
+                    if (type.IsNestedPublic)
+                    {
+                        Type tempType = type;
+
+                        // Check nesting until certain height, or top is reached
+                        for (int i = 0; i < 5; i++)
+                        {
+                            Type enclosingType = null;
+
+                            //Find enclosing type
+                            foreach (Type t in types)
+                            {
+                                foreach (Type nt in t.GetNestedTypes())
+                                {
+                                    if (nt != tempType) 
+                                        continue;
+                                    
+                                    enclosingType = t;
+                                    break;
+                                }
+
+                                if (enclosingType != null)
+                                    break;
+                            }
+
+                            if (enclosingType == null)
+                                break;
+
+                            //Get Preconditions from enclosing class
+                            if (classPreconditions.TryGetValue(enclosingType, out List<PreconditionAttribute> nestedPreconditions))
+                                entry.Preconditions.InsertRange(0, nestedPreconditions);
+
+                            //Get Groups from enclosing class
+                            if (classGroups.TryGetValue(enclosingType, out List<string> nestedGroups))
+                                entry.Groups.InsertRange(0, nestedGroups);
+
+                            tempType = enclosingType;
+                        }
+                    }
+
+                    entry.Parameters.AddRange(method.GetParameters());
+                    entry.CreateRuntimeParameters();
+
+                    classCommands.Add(entry);
                 }
 
+                FactoryCommands.AddRange(classCommands);
+            }
 
-                //Sort By Name
-                FactoryCommands.Sort((c1, c2) => c1.FullName.CompareTo(c2.FullName));
-            });
+
+            //Sort By Name
+            FactoryCommands.Sort((c1, c2) => c1.FullName.CompareTo(c2.FullName));
+            return Task.CompletedTask;
         }
 
 
@@ -240,13 +247,14 @@ namespace GeistDesWaldes.CommandMeta
 
         public Task CollectCustomCommands()
         {
-            return Task.Run(() =>
-            {
-                CustomCommands.Clear();
+            CustomCommands.Clear();
 
-                for (int i = 0; i < _Server.CustomCommandHandler.CustomCommands.Commands.Count; i++)
-                    CustomCommands.Add(new CommandMetaInfo() { Name = _Server.CustomCommandHandler.CustomCommands.Commands[i].Name, IsCustomCommand = true });
-            });
+            foreach (CustomCommand cmd in _Server.CustomCommandHandler.CustomCommands.Commands)
+            {
+                CustomCommands.Add(new CommandMetaInfo { Name = cmd.Name, IsCustomCommand = true });
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task<CustomRuntimeResult<CommandMetaInfo>> GetCommandInfoAsync(string commandName, bool isCustomCommand = false)

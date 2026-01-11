@@ -26,13 +26,13 @@ namespace GeistDesWaldes.Decoration
         {
             base.OnServerStart(source, e);
 
-            Task.Run(InitializeLayoutTemplateHandler).GetAwaiter().GetResult();    
+            InitializeLayoutTemplateHandler().SafeAsync<LayoutTemplateHandler>(_Server.LogHandler);
         }
         internal override void OnCheckIntegrity(object source, EventArgs e)
         {
             base.OnCheckIntegrity(source, e);
 
-            Task.Run(CheckIntegrity).GetAwaiter().GetResult();
+            CheckIntegrity().SafeAsync<LayoutTemplateHandler>(_Server.LogHandler);
         }
 
         private async Task InitializeLayoutTemplateHandler()

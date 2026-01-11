@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GeistDesWaldes.Attributes;
+using GeistDesWaldes.Misc;
 using TwitchLib.Api.Core.Enums;
 using TwitchLib.Api.Helix.Models.Games;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
@@ -452,7 +453,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 entity.IntervalActionWatchdog.OnChatMessageReceived();
                 
                 if (userIntro)
-                    _ = Task.Run(() => HandleUserIntro(entity, fromUser));
+                    HandleUserIntro(entity, fromUser).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
                 
                 // Active Chatters Update
                 entity.ChatMessageReceived(fromUserId, fromUser).ConfigureAwait(false);
@@ -468,7 +469,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 TwitchUser author = new(evt);
                 TwitchUserMessage twitchMessage = new(channelMessage, author, message);
 
-                _ = Task.Run(() => entity.Server.HandleCommandAsync(twitchMessage));
+                entity.Server.HandleCommandAsync(twitchMessage).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
             }
             
             return Task.CompletedTask;
@@ -521,29 +522,32 @@ namespace GeistDesWaldes.TwitchIntegration
 
             foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                entity.UpdateUserCooldownList();
-
-                bool onCooldown = entity.IsOnCooldown(userId);
-                entity.AddCooldown(userId);
-
-                if (onCooldown)
-                {
-                    TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelFollow)}", "User already triggered callback.", LogSeverity.Info);
-                }
-                else
-                {
-                    Task.Run(async () =>
-                    {
-                        CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnFollow);
-
-                        if (callback.IsSuccess && callback.ResultValue is { } command)
-                            await command.Execute(null, [ userName ]);
-                    });
-                }
+                NotifyChannelFollow(entity, userName, userId).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
             }
             
             return Task.CompletedTask;
         }
+
+        private async Task NotifyChannelFollow(ConfigStreamEntity entity, string userName, string userId)
+        {
+            entity.UpdateUserCooldownList();
+
+            bool onCooldown = entity.IsOnCooldown(userId);
+            entity.AddCooldown(userId);
+
+            if (onCooldown)
+            {
+                TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyChannelFollow)}", "User already triggered callback.");
+            }
+            else
+            {
+                CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnFollow);
+
+                if (callback.IsSuccess && callback.ResultValue is { } command)
+                    await command.Execute(null, [ userName ]);
+            }
+        }
+        
 
         private Task EventSub_OnChannelRaid(object sender, ChannelRaidArgs e)
         {
@@ -560,17 +564,20 @@ namespace GeistDesWaldes.TwitchIntegration
             
             foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                _ = Task.Run(async () =>
-                {
-                    CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnRaid);
-
-                    if (callback.IsSuccess && callback.ResultValue is { } command)
-                        await command.Execute(null, [ fromUserName, viewerCount ]);
-                });
+                NotifyChannelRaid(entity, fromUserName, viewerCount).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
             }
             
             return Task.CompletedTask;
         }
+
+        private async Task NotifyChannelRaid(ConfigStreamEntity entity, string fromUserName, string viewerCount)
+        {
+            CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnRaid);
+
+            if (callback.IsSuccess && callback.ResultValue is { } command)
+                await command.Execute(null, [ fromUserName, viewerCount ]);
+        }
+        
         
         private Task EventSub_OnChannelSubscribe(object sender, ChannelSubscribeArgs e)
         {
@@ -609,14 +616,16 @@ namespace GeistDesWaldes.TwitchIntegration
             
             foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                _ = Task.Run(async () =>
-                {
-                    if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
-                        await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
-                });
+                NotifyStreamUpdate(entity).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
             }
 
             return Task.CompletedTask;
+        }
+
+        private async Task NotifyStreamUpdate(ConfigStreamEntity entity)
+        {
+            if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
+                await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
         }
         
         
@@ -667,27 +676,29 @@ namespace GeistDesWaldes.TwitchIntegration
             
             foreach ((ServerConfiguration config, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                _ = Task.Run(async() =>
-                {
-                    entity.IntervalActionWatchdog.Start();
+                NotifyStreamOnline(config, entity, titleName, gameName, minutesSinceLastChange).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
+            }
+        }
 
-                    string lastChangeString = StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo);
-                    
-                    var callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStart);
-                    if (callbackResult.IsSuccess)
-                    {
-                        if (callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
-                    }
+        private async Task NotifyStreamOnline(ServerConfiguration config, ConfigStreamEntity entity, string titleName, string gameName, double minutesSinceLastChange)
+        {
+            entity.IntervalActionWatchdog.Start();
 
-                    if (minutesSinceLastChange < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
-                    {
-                        callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
+            string lastChangeString = StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo);
                     
-                        if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
-                    }
-                });
+            var callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStart);
+            if (callbackResult.IsSuccess)
+            {
+                if (callbackResult.ResultValue is { } callback)
+                    await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
+            }
+
+            if (minutesSinceLastChange < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+            {
+                callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
+                    
+                if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
+                    await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
             }
         }
 
@@ -710,31 +721,32 @@ namespace GeistDesWaldes.TwitchIntegration
 
             foreach ((ServerConfiguration config, ConfigStreamEntity entity) in _configStreamEntities)
             {
-                _ = Task.Run(async() =>
-                {
-                    entity.ClearActiveChatters();
-                    entity.IntervalActionWatchdog.Stop();
-
-                    CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
-            
-                    if (callbackResult.IsSuccess)
-                    {
-                        if (callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
-                    }
-
-                    if (StreamInfo.TimeSinceLastChange.TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
-                    {
-                        callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
-                
-                        if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
-                            await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
-                    }
-                    
-                });
+                NotifyStreamOffline(config, entity).SafeAsync<TwitchIntegrationClient>(entity.Server.LogHandler);
             }
 
             return Task.CompletedTask;
+        }
+
+        private async Task NotifyStreamOffline(ServerConfiguration config, ConfigStreamEntity entity)
+        {
+            entity.ClearActiveChatters();
+            entity.IntervalActionWatchdog.Stop();
+
+            CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
+            
+            if (callbackResult.IsSuccess)
+            {
+                if (callbackResult.ResultValue is { } callback)
+                    await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+            }
+
+            if (StreamInfo.TimeSinceLastChange.TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
+            {
+                callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
+                
+                if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
+                    await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
+            }
         }
 
 

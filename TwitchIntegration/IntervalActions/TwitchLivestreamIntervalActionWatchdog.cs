@@ -2,6 +2,7 @@
 using GeistDesWaldes.UserCommands;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.Misc;
 
 namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 {
@@ -43,7 +44,7 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 
             _messageCount++;
 
-            Task.Run(TriggerAction);
+            TriggerAction().SafeAsync<TwitchLivestreamIntervalActionWatchdog>(_serverConfiguration.GuildId);
         }
 
         private async Task TriggerAction()
