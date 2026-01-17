@@ -53,14 +53,6 @@ namespace GeistDesWaldes
         public readonly LogHandler LogHandler;
 
         public readonly string ServerFilesDirectoryPath;
-
-        private UserCallbackHandler UserCallbackHandler => Services.GetService<UserCallbackHandler>();
-        private ForestUserHandler ForestUserHandler => Services.GetService<ForestUserHandler>();
-        private UserCooldownHandler UserCooldownHandler => Services.GetService<UserCooldownHandler>();
-        private PollHandler PollHandler => Services.GetService<PollHandler>();
-        private CommandCooldownHandler CommandCooldownHandler => Services.GetService<CommandCooldownHandler>();
-        private CurrencyHandler CurrencyHandler => Services.GetService<CurrencyHandler>();
-        private CommandStatisticsHandler CommandStatisticsHandler => Services.GetService<CommandStatisticsHandler>();
         
 
         public Server(ulong guildId, DiscordSocketClient client)
@@ -200,7 +192,7 @@ namespace GeistDesWaldes
 
         private async Task OnClientSetupComplete()
         {
-            if ((await UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.DiscordCallbackTypes.OnClientReady)).ResultValue is { } callback)
+            if ((await GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.DiscordCallbackTypes.OnClientReady)).ResultValue is { } callback)
                 await callback.Execute(null, [DateTime.Now.ToString(CultureInfo)]);
         }
 
@@ -226,10 +218,10 @@ namespace GeistDesWaldes
             if (discordMessage == null && twitchMessage == null)
                 return;
 
-            ForestUser forestUser = await ForestUserHandler.GetOrCreateUser(message.Author);
+            ForestUser forestUser = await GetModule<ForestUserHandler>().GetOrCreateUser(message.Author);
 
             // Ignore users that currently are on cooldown
-            if (await UserCooldownHandler.IsOnCooldown(message.Author))
+            if (await GetModule<UserCooldownHandler>().IsOnCooldown(message.Author))
             {
                 await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(HandleCommandAsync), $"Blocked '{forestUser.Name}' -> on cooldown!"));
                 return;
@@ -240,7 +232,7 @@ namespace GeistDesWaldes
             // Is Command
             if (message.HasCharPrefix(Config.GeneralSettings.CommandPrefix, ref prefixPosition) || message.HasMentionPrefix(DiscordClient.CurrentUser, ref prefixPosition))
             {
-                await UserCooldownHandler.AddToCooldown(message.Author);
+                await GetModule<UserCooldownHandler>().AddToCooldown(message.Author);
 
                 // Create a Command Context.
                 CommandContext context;
@@ -254,13 +246,13 @@ namespace GeistDesWaldes
                 await ExecuteCommand(context, prefixPosition);
             }
             // Is Poll Vote
-            else if (await PollHandler.GetChannelPollCount(message.Channel.Id) > 0 && message.HasCharPrefix(Config.GeneralSettings.PollVotePrefix, ref prefixPosition))
+            else if (await GetModule<PollHandler>().GetChannelPollCount(message.Channel.Id) > 0 && message.HasCharPrefix(Config.GeneralSettings.PollVotePrefix, ref prefixPosition))
             {
-                PollHandler.VoteEvaluationResult voteResult = await PollHandler.TryVote(message, prefixPosition);
+                PollHandler.VoteEvaluationResult voteResult = await GetModule<PollHandler>().TryVote(message, prefixPosition);
 
                 await LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(HandleCommandAsync), $"Vote Result: {voteResult}"));
 
-                await UserCooldownHandler.AddToCooldown(message.Author);
+                await GetModule<UserCooldownHandler>().AddToCooldown(message.Author);
             }
         }
         public async Task ExecuteMetaCommandAsync(string command, IMessageChannel contextChannel, IUser originalUser = null, CommandBundleEntry bundleCallback = null)
@@ -294,7 +286,7 @@ namespace GeistDesWaldes
 
         public async Task OnCommandExecutedAsync(Optional<CommandInfo> command, ICommandContext context, IResult result)
         {
-            ForestUser user = (await ForestUserHandler.GetUser(context.User))?.ResultValue;
+            ForestUser user = (await GetModule<ForestUserHandler>().GetUser(context.User))?.ResultValue;
             
             await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnCommandExecutedAsync), $"{user?.Name} ({user?.ForestUserId}) executed '{command.GetFullCommandName()}'."));
 
@@ -313,10 +305,12 @@ namespace GeistDesWaldes
                         continue;
 
                     if (command.Value.Preconditions[i] is CommandCooldown coco)
-                        await CommandCooldownHandler.AddToCooldown(command.Value, coco.CooldownInSeconds);
+                    {
+                        await GetModule<CommandCooldownHandler>().AddToCooldown(command.Value, coco.CooldownInSeconds);
+                    }
                     else if (command.Value.Preconditions[i] is CommandFee cofe)
                     {
-                        CustomRuntimeResult currencyResult = await CurrencyHandler.AddCurrencyToUser(context.User, -cofe.PriceTag);
+                        CustomRuntimeResult currencyResult = await GetModule<CurrencyHandler>().AddCurrencyToUser(context.User, -cofe.PriceTag);
 
                         if (!currencyResult.IsSuccess)
                             await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(OnCommandExecutedAsync), $"Could not enforce {nameof(CommandFee)} on '{user?.Name}'! \n{currencyResult.Reason}"));
@@ -343,16 +337,16 @@ namespace GeistDesWaldes
                     else if (result.ErrorReason.IndexOf("lacking funds", StringComparison.OrdinalIgnoreCase) > -1)
                     {
                         allowOnTwitch = true;
-                        resultError = CurrencyHandler.CustomizationData.GetToStringMessage(CurrencyCustomization.ToStringType.NotEnough);
+                        resultError = GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(CurrencyCustomization.ToStringType.NotEnough);
                     }
                     else
                         resultError = ReplyDictionary.ERROR_UNMET_PRECONDITION;
                 }
                 else if (resultError.Equals("UnknownCommand"))
                     resultError = ReplyDictionary.ERROR_UNKNOWN_COMMAND;
-                else if (resultError.StartsWith(nameof(Users.ForestUserHandler)))
+                else if (resultError.StartsWith(nameof(ForestUserHandler)))
                 {
-                    resultError = resultError.Remove(0, nameof(Users.ForestUserHandler).Length + 1);
+                    resultError = resultError.Remove(0, nameof(ForestUserHandler).Length + 1);
                     allowOnTwitch = true;
                 }
                 else if (resultError.Equals("A quoted parameter is incomplete."))
@@ -396,7 +390,7 @@ namespace GeistDesWaldes
             if (!command.IsSpecified || context == null || context.User.IsBot || context.Message is MetaCommandMessage)
                 return;
             
-            await CommandStatisticsHandler.RecordCommand(command.GetFullCommandName());
+            await GetModule<CommandStatisticsHandler>().RecordCommand(command.GetFullCommandName());
         }
     }
 }
