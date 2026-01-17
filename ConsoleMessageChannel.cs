@@ -49,7 +49,7 @@ namespace GeistDesWaldes
                 #endregion
 
                 #region Twitch Users
-                var response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
+                var response = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
 
                 foreach (var user in response.Users)
                 {
@@ -76,7 +76,7 @@ namespace GeistDesWaldes
             }
 
             // Twitch Users
-            GetUsersResponse response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
+            GetUsersResponse response = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
 
             foreach (User user in response.Users)
             {

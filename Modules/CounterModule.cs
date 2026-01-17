@@ -14,16 +14,16 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CounterPermissions")]
     [Group("counter")]
     [Alias("counters")]
-    public class CounterModule : ModuleBase<CommandContext>, IServerModule
+    public class CounterModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
         
         [Priority(-1)]
         [Command]
         [Summary("Lists existing counters.")]
         public async Task ListCounters()
         {
-            string body = await _Server.CounterHandler.ListCounters();
+            string body = await Server.GetModule<CounterHandler>().ListCounters();
 
             ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
@@ -37,15 +37,15 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "CounterModPermissions")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CounterModPermissions")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CounterModPermissions")]
-        public class CounterModuleModPermissionSubModule : ModuleBase<CommandContext>, IServerModule
+        public class CounterModuleModPermissionSubModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("add")]
             [Summary("Creates a new counter.")]
             public async Task<RuntimeResult> AddCounter([Summary("The name of the counter")] string counterName, [Summary("Text to embedd the counter into. e.g. \"I ate {x} fish, today!\"")][Optional] string counterText)
             {
-                var result = await _Server.CounterHandler.AddCounterAsync(new Counter(counterName, counterText));
+                var result = await Server.GetModule<CounterHandler>().AddCounterAsync(new Counter(counterName, counterText));
 
                 if (result.IsSuccess)
                 {
@@ -68,7 +68,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Removes an existing counter.")]
             public async Task<RuntimeResult> RemoveCounter([Summary("The name of the counter")] string counterName)
             {
-                var result = await _Server.CounterHandler.RemoveCounterAsync(counterName);
+                var result = await Server.GetModule<CounterHandler>().RemoveCounterAsync(counterName);
                 if (result.IsSuccess)
                 {
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_REMOVED, "{X}", counterName);
@@ -90,11 +90,11 @@ namespace GeistDesWaldes.Modules
             [Summary("Sets existing counter to value.")]
             public async Task<RuntimeResult> SetCounter([Summary("The name of the counter")] string counterName, [Summary("The value the counter will be set to.")] int counterValue)
             {
-                var result = _Server.CounterHandler.GetCounter(counterName);
-                if (result.ResultValue is Counter counter)
+                CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
+                if (result.ResultValue is { } counter)
                 {
                     counter.Value = counterValue;
-                    await _Server.CounterHandler.SaveCounterCollectionToFile();
+                    await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
 
                     string body = await counter.ReturnValueText();
@@ -116,12 +116,12 @@ namespace GeistDesWaldes.Modules
             [Summary("Edits existing counter description.")]
             public async Task<RuntimeResult> EditCounter([Summary("The name of the counter")] string counterName, [Summary("The new description.")] string newDescription)
             {
-                var result = _Server.CounterHandler.GetCounter(counterName);
-                if (result.ResultValue is Counter counter)
+                CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
+                if (result.ResultValue is { } counter)
                 {
                     counter.Description = newDescription;
 
-                    await _Server.CounterHandler.SaveCounterCollectionToFile();
+                    await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_DESCRIPTION_CHANGED, "{x}", counterName);
 
@@ -138,6 +138,5 @@ namespace GeistDesWaldes.Modules
                 return result;
             }
         }
-
     }
 }

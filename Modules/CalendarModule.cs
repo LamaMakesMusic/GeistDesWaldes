@@ -8,6 +8,9 @@ using GeistDesWaldes.UserCommands;
 using System;
 using System.Text;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
+using GeistDesWaldes.Users;
+using PublicHoliday;
 
 namespace GeistDesWaldes.Modules
 {
@@ -16,9 +19,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CalendarPermissions")]
     [Group("holiday")]
     [Alias("holidays")]
-    public class CalendarModule : ModuleBase<CommandContext>, IServerModule
+    public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Command("is")]
         [Summary("Is the provided day a holiday?")]
@@ -27,13 +30,12 @@ namespace GeistDesWaldes.Modules
             try
             {
                 if (string.IsNullOrWhiteSpace(day))
-                    day = DateTime.Today.ToString();
+                    day = DateTime.Today.ToString(Server.CultureInfo);
 
                 if (!DateTime.TryParse(day, out DateTime parsedDay))
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(DateTime)));
 
-
-                string body = string.Empty;
+                string body;
 
                 if (HolidayHandler.GermanHolidays.PublicHolidayNames(parsedDay.Year).TryGetValue(parsedDay, out string foundHoliday))
                     body = $"{ReplyDictionary.THAT_DAY_IS_A_HOLIDAY} => {foundHoliday}";
@@ -44,7 +46,7 @@ namespace GeistDesWaldes.Modules
                 ChannelMessage msg = new ChannelMessage(Context)
                     .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
                    .AddContent(new ChannelMessageContent()
-                       .SetTitle(parsedDay.ToString("dd. MMMM yyyy", _Server.CultureInfo))
+                       .SetTitle(parsedDay.ToString("dd. MMMM yyyy", Server.CultureInfo))
                        .SetDescription(body)
                    );
 
@@ -70,34 +72,34 @@ namespace GeistDesWaldes.Modules
                 else if (entries > 10)
                     entries = 10;
 
-                var startDate = DateTime.Today.AddDays(1);
-                var endDate = startDate.AddMonths(12);
+                DateTime startDate = DateTime.Today.AddDays(1);
+                DateTime endDate = startDate.AddMonths(12);
 
-                var body = new StringBuilder();
+                StringBuilder body = new();
 
-                var result = await HolidayHandler.GetUpcomingHolidays(entries);
+                Holiday[] result = await HolidayHandler.GetUpcomingHolidays(entries);
                 if (result == null || result.Length == 0)
+                {
                     body.Append("-");
+                }
                 else
                 {
-                    foreach (var holiday in result)
+                    foreach (Holiday holiday in result)
                     {
-                        string holidayName = "NameNotFound";
+                        if (!HolidayHandler.GermanHolidays.PublicHolidayNames(holiday.HolidayDate.Year).TryGetValue(holiday.HolidayDate, out string holidayName))
+                            await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetUpcomingHoliday), $"Could not find holiday name for date: {holiday.HolidayDate}"));
 
-                        if (!HolidayHandler.GermanHolidays.PublicHolidayNames(holiday.HolidayDate.Year).TryGetValue(holiday.HolidayDate, out holidayName))
-                            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetUpcomingHoliday), $"Could not find holiday name for date: {holiday.HolidayDate}"));
-
-                        body.AppendLine($"{holiday.HolidayDate.ToString("dd. MMMM yyyy", _Server.CultureInfo)} | {holidayName}");
+                        body.AppendLine($"{holiday.HolidayDate.ToString("dd. MMMM yyyy", Server.CultureInfo)} | {holidayName}");
                     }
 
-                    endDate = result[result.Length - 1].HolidayDate;
+                    endDate = result[^1].HolidayDate;
                 }
 
 
                 ChannelMessage msg = new ChannelMessage(Context)
                     .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
                     .AddContent(new ChannelMessageContent()
-                        .SetTitle($"{startDate.ToString("dd. MMMM yyyy", _Server.CultureInfo)} - {endDate.ToString("dd. MMMM yyyy", _Server.CultureInfo)}")
+                        .SetTitle($"{startDate.ToString("dd. MMMM yyyy", Server.CultureInfo)} - {endDate.ToString("dd. MMMM yyyy", Server.CultureInfo)}")
                         .SetDescription(body.ToString())
                     );
 
@@ -116,9 +118,9 @@ namespace GeistDesWaldes.Modules
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CalendarAdminPermissions")]
         [Group("behaviour")]
         [Alias("behaviours")]
-        public class CalendarAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class CalendarAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
             
             [Priority(-1)]
             [Command]
@@ -126,7 +128,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    HolidayBehaviour[] result =  await _Server.HolidayHandler.GetBehaviours(maxEntries);
+                    HolidayBehaviour[] result =  await Server.GetModule<HolidayHandler>().GetBehaviours(maxEntries);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -152,7 +154,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var result = await _Server.HolidayHandler.GetHolidayBehaviour(holidayName);
+                    CustomRuntimeResult<HolidayBehaviour> result = await Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
 
                     if (result.IsSuccess == false)
                         return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X, "{x}", holidayName));
@@ -173,12 +175,12 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var holidayResult = await _Server.HolidayHandler.GetHolidayBehaviour(holidayName);
+                    CustomRuntimeResult<HolidayBehaviour> holidayResult = await Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
 
                     if (holidayResult.IsSuccess == false)
                         return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X, "{x}", holidayName));
 
-                    var parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                    CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
                     if (parseResult.IsSuccess)
                     {
                         CustomCommand cmd;
@@ -191,10 +193,10 @@ namespace GeistDesWaldes.Modules
                         cmd.CommandsToExecute = parseResult.ResultValue;
 
                         if (channel != null)
-                            cmd.TextChannelContextID = channel.Id;
+                            cmd.TextChannelContextId = channel.Id;
 
 
-                        var setResult = await _Server.HolidayHandler.SetHolidayBehaviour(holidayResult.ResultValue.HolidayName, cmd, behaviourType);
+                        CustomRuntimeResult setResult = await Server.GetModule<HolidayHandler>().SetHolidayBehaviour(holidayResult.ResultValue.HolidayName, cmd, behaviourType);
                         if (setResult.IsSuccess)
                         {
                             string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.SAVED_HOLIDAY_BEHAVIOUR_FOR_X, "{x}", holidayResult.ResultValue.HolidayName);
@@ -210,7 +212,7 @@ namespace GeistDesWaldes.Modules
                             await msg.SendAsync();
 
 
-                            await _Server.HolidayHandler.SaveHolidayBehavioursToFile();
+                            await Server.GetModule<HolidayHandler>().SaveHolidayBehavioursToFile();
                         }
 
                         return setResult;
@@ -230,7 +232,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var removeResult = await _Server.HolidayHandler.RemoveHolidayBehaviour(holidayName);
+                    CustomRuntimeResult removeResult = await Server.GetModule<HolidayHandler>().RemoveHolidayBehaviour(holidayName);
 
                     if (removeResult.IsSuccess)
                     {
@@ -247,7 +249,7 @@ namespace GeistDesWaldes.Modules
                         await msg.SendAsync();
 
 
-                        await _Server.HolidayHandler.SaveHolidayBehavioursToFile();
+                        await Server.GetModule<HolidayHandler>().SaveHolidayBehavioursToFile();
                     }
 
                     return removeResult;
@@ -267,9 +269,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CalendarPermissions")]
     [Group("birthday")]
     [Alias("birthdays")]
-    public class BirthdayModule : ModuleBase<CommandContext>, IServerModule
+    public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Command("add")]
         [Summary("Adds user's birthday to the calendar.")]
@@ -280,21 +282,21 @@ namespace GeistDesWaldes.Modules
                 if (Context.Channel is TwitchIntegration.TwitchMessageChannel || Context.Channel is ConsoleMessageChannel)
                     return CustomRuntimeResult.FromError(ReplyDictionary.COMMAND_ONLY_VALID_ON_DISCORD);
 
-                var getUserResult = await _Server.ForestUserHandler.GetUser(Context.User);
+                CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(Context.User);
 
                 if (getUserResult.IsSuccess)
                 {
-                    var birthdayGetResult = await _Server.BirthdayHandler.GetBirthday(getUserResult.ResultValue.ForestUserId);
+                    CustomRuntimeResult<Birthday> birthdayGetResult = await Server.GetModule<BirthdayHandler>().GetBirthday(getUserResult.ResultValue.ForestUserId);
 
                     if (birthdayGetResult.IsSuccess)
                         return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS, "{x}", getUserResult.ResultValue.Name));
 
-                    var addResult = await _Server.BirthdayHandler.AddBirthday(getUserResult.ResultValue, date);
+                    CustomRuntimeResult addResult = await Server.GetModule<BirthdayHandler>().AddBirthday(getUserResult.ResultValue, date);
 
                     if (addResult.IsSuccess)
                     {
                         string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", getUserResult.ResultValue.Name);
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", _Server.CultureInfo));
+                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", Server.CultureInfo));
 
                         ChannelMessage msg = new ChannelMessage(Context)
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -305,7 +307,7 @@ namespace GeistDesWaldes.Modules
 
                         await msg.SendAsync();
 
-                        await _Server.BirthdayHandler.SaveBirthdaysToFile();
+                        await Server.GetModule<BirthdayHandler>().SaveBirthdaysToFile();
                     }
 
                     return addResult;
@@ -331,11 +333,11 @@ namespace GeistDesWaldes.Modules
                 if (user == null)
                     user = Context.User;
 
-                var getUserResult = await _Server.ForestUserHandler.GetUser(user);
+                CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(user);
 
                 if (getUserResult.IsSuccess)
                 {
-                    var result = await _Server.BirthdayHandler.GetBirthday(getUserResult.ResultValue.ForestUserId);
+                    CustomRuntimeResult<Birthday> result = await Server.GetModule<BirthdayHandler>().GetBirthday(getUserResult.ResultValue.ForestUserId);
 
                     if (result.IsSuccess == false)
                         return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X, "{x}", user.Username));
@@ -343,7 +345,7 @@ namespace GeistDesWaldes.Modules
                     Birthday birthday = result.ResultValue;
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", user.Username);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", birthday.BirthDate.ToString("dd. MMMM", _Server.CultureInfo));
+                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", birthday.BirthDate.ToString("dd. MMMM", Server.CultureInfo));
 
                     ChannelMessage msg = new ChannelMessage(Context)
                     .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -374,12 +376,12 @@ namespace GeistDesWaldes.Modules
                 if (Context.Channel is TwitchIntegration.TwitchMessageChannel || Context.Channel is ConsoleMessageChannel)
                     return CustomRuntimeResult.FromError(ReplyDictionary.COMMAND_ONLY_VALID_ON_DISCORD);
 
-                var user = Context.User;
+                IUser user = Context.User;
 
-                var getUserResult = await _Server.ForestUserHandler.GetUser(user);
+                CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(user);
                 if (getUserResult.IsSuccess)
                 {
-                    var removeResult = await _Server.BirthdayHandler.RemoveBirthday(getUserResult.ResultValue);
+                    CustomRuntimeResult removeResult = await Server.GetModule<BirthdayHandler>().RemoveBirthday(getUserResult.ResultValue);
                     if (removeResult.IsSuccess)
                     {
                         string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X, "{x}", user.Username);
@@ -393,7 +395,7 @@ namespace GeistDesWaldes.Modules
 
                         await msg.SendAsync();
 
-                        await _Server.BirthdayHandler.SaveBirthdaysToFile();
+                        await Server.GetModule<BirthdayHandler>().SaveBirthdaysToFile();
                     }
 
                     return removeResult;
@@ -417,18 +419,18 @@ namespace GeistDesWaldes.Modules
                 if (entries < 1)
                     entries = 1;
 
-                Birthday[] upcomingBirthdays = await _Server.BirthdayHandler.GetUpcomingBirthdays(entries);
+                Birthday[] upcomingBirthdays = await Server.GetModule<BirthdayHandler>().GetUpcomingBirthdays(entries);
 
-                StringBuilder body = new StringBuilder();
+                StringBuilder body = new();
 
                 if (upcomingBirthdays?.Length > 0)
                 {
                     for (int i = 0; i < upcomingBirthdays.Length; i++)
                     {
-                        var getUserResult = await _Server.ForestUserHandler.GetUser(upcomingBirthdays[i].UserId);
+                        CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(upcomingBirthdays[i].UserId);
 
                         if (getUserResult.IsSuccess)
-                            body.AppendLine($"° {upcomingBirthdays[i].BirthDate.ToString("dd. MMMM", _Server.CultureInfo)} | {getUserResult.ResultValue.Name} ");
+                            body.AppendLine($"° {upcomingBirthdays[i].BirthDate.ToString("dd. MMMM", Server.CultureInfo)} | {getUserResult.ResultValue.Name} ");
                     }
                 }
 
@@ -455,9 +457,9 @@ namespace GeistDesWaldes.Modules
         [RequireUserPermission(GuildPermission.Administrator, Group = "CalendarAdminPermissions")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CalendarAdminPermissions")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CalendarAdminPermissions")]
         // [Group("admin")]
-        public class BirthdayAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class BirthdayAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("add")]
             [Summary("Adds birthday entry for provided user.")]
@@ -468,19 +470,19 @@ namespace GeistDesWaldes.Modules
                     if (user == null)
                         throw new Exception(ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY);
 
-                    var getUserResult = await _Server.ForestUserHandler.GetUser(user);
+                    CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(user);
                     if (getUserResult.IsSuccess)
                     {
-                        var birthdayGetResult = await _Server.BirthdayHandler.GetBirthday(getUserResult.ResultValue.ForestUserId);
+                        CustomRuntimeResult<Birthday> birthdayGetResult = await Server.GetModule<BirthdayHandler>().GetBirthday(getUserResult.ResultValue.ForestUserId);
                         if (birthdayGetResult.IsSuccess)
                             return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS, "{x}", user.Username));
 
-                        var addResult = await _Server.BirthdayHandler.AddBirthday(getUserResult.ResultValue, date);
+                        CustomRuntimeResult addResult = await Server.GetModule<BirthdayHandler>().AddBirthday(getUserResult.ResultValue, date);
 
                         if (addResult.IsSuccess)
                         {
                             string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", user.Username);
-                            body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", _Server.CultureInfo));
+                            body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", Server.CultureInfo));
 
 
                             ChannelMessage msg = new ChannelMessage(Context)
@@ -493,7 +495,7 @@ namespace GeistDesWaldes.Modules
                             await msg.SendAsync();
 
 
-                            await _Server.BirthdayHandler.SaveBirthdaysToFile();
+                            await Server.GetModule<BirthdayHandler>().SaveBirthdaysToFile();
                         }
 
                         return addResult;
@@ -516,10 +518,10 @@ namespace GeistDesWaldes.Modules
                     if (user == null)
                         throw new Exception(ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY);
 
-                    var getUserResult = await _Server.ForestUserHandler.GetUser(user);
+                    CustomRuntimeResult<ForestUser> getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(user);
                     if (getUserResult.IsSuccess)
                     {
-                        var removeResult = await _Server.BirthdayHandler.RemoveBirthday(getUserResult.ResultValue);
+                        CustomRuntimeResult removeResult = await Server.GetModule<BirthdayHandler>().RemoveBirthday(getUserResult.ResultValue);
                         if (removeResult.IsSuccess)
                         {
                             string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X, "{x}", user.Username);
@@ -535,7 +537,7 @@ namespace GeistDesWaldes.Modules
                             await msg.SendAsync();
 
 
-                            await _Server.BirthdayHandler.SaveBirthdaysToFile();
+                            await Server.GetModule<BirthdayHandler>().SaveBirthdaysToFile();
                         }
 
                         return removeResult;
@@ -551,9 +553,9 @@ namespace GeistDesWaldes.Modules
 
 
             [Group("callback")]
-            public class BirthdayAdminCallbackModule : ModuleBase<CommandContext>, IServerModule
+            public class BirthdayAdminCallbackModule : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
                 [Command("set")]
                 [Summary("Sets provided birthday callback.")]
@@ -561,21 +563,21 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        var parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                        CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
                         if (parseResult.IsSuccess)
                         {
                             if (behaviourType == HolidayBehaviour.BehaviourAction.StartCallback)
-                                _Server.BirthdayHandler.BirthdayDictionary.StartCallback.CommandsToExecute = parseResult.ResultValue;
+                                Server.GetModule<BirthdayHandler>().BirthdayDictionary.StartCallback.CommandsToExecute = parseResult.ResultValue;
                             else
-                                _Server.BirthdayHandler.BirthdayDictionary.EndCallback.CommandsToExecute = parseResult.ResultValue;
+                                Server.GetModule<BirthdayHandler>().BirthdayDictionary.EndCallback.CommandsToExecute = parseResult.ResultValue;
 
 
                             if (channel != null)
                             {
                                 if (behaviourType == HolidayBehaviour.BehaviourAction.StartCallback)
-                                    _Server.BirthdayHandler.BirthdayDictionary.StartCallback.TextChannelContextID = channel.Id;
+                                    Server.GetModule<BirthdayHandler>().BirthdayDictionary.StartCallback.TextChannelContextId = channel.Id;
                                 else
-                                    _Server.BirthdayHandler.BirthdayDictionary.EndCallback.TextChannelContextID = channel.Id;
+                                    Server.GetModule<BirthdayHandler>().BirthdayDictionary.EndCallback.TextChannelContextId = channel.Id;
                             }
 
 
@@ -592,7 +594,7 @@ namespace GeistDesWaldes.Modules
                             await msg.SendAsync();
 
 
-                            await _Server.BirthdayHandler.SaveBirthdaysToFile();
+                            await Server.GetModule<BirthdayHandler>().SaveBirthdaysToFile();
 
                             return CustomRuntimeResult.FromSuccess();
                         }
@@ -614,9 +616,9 @@ namespace GeistDesWaldes.Modules
                         CustomCommand callback;
 
                         if (behaviourType == HolidayBehaviour.BehaviourAction.StartCallback)
-                            callback = _Server.BirthdayHandler.BirthdayDictionary.StartCallback;
+                            callback = Server.GetModule<BirthdayHandler>().BirthdayDictionary.StartCallback;
                         else
-                            callback = _Server.BirthdayHandler.BirthdayDictionary.EndCallback;
+                            callback = Server.GetModule<BirthdayHandler>().BirthdayDictionary.EndCallback;
 
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -641,7 +643,7 @@ namespace GeistDesWaldes.Modules
                 [Summary("Excecutes provided birthday callback.")]
                 public async Task<RuntimeResult> TestCallback(HolidayBehaviour.BehaviourAction behaviourType, string[] additionalParameters = null)
                 {
-                    CustomCommand callback = behaviourType == HolidayBehaviour.BehaviourAction.StartCallback ? _Server.BirthdayHandler.BirthdayDictionary.StartCallback : _Server.BirthdayHandler.BirthdayDictionary.EndCallback;
+                    CustomCommand callback = behaviourType == HolidayBehaviour.BehaviourAction.StartCallback ? Server.GetModule<BirthdayHandler>().BirthdayDictionary.StartCallback : Server.GetModule<BirthdayHandler>().BirthdayDictionary.EndCallback;
 
                     if (callback == default)
                         return CustomRuntimeResult.FromError($"Could not find callback for behaviour '{behaviourType}'!");
@@ -649,21 +651,21 @@ namespace GeistDesWaldes.Modules
 
                     RuntimeResult result = CustomRuntimeResult.FromSuccess();
 
-                    ulong origChannel = callback.TextChannelContextID;
+                    ulong origChannel = callback.TextChannelContextId;
 
                     try
                     {
-                        callback.TextChannelContextID = Context.Channel.Id;
+                        callback.TextChannelContextId = Context.Channel.Id;
                         await callback.Execute(Context, additionalParameters);
                     }
                     catch (Exception e)
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallback), "", e));
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallback), "", e));
                         result = CustomRuntimeResult.FromError(e.Message);
                     }
                     finally
                     {
-                        callback.TextChannelContextID = origChannel;
+                        callback.TextChannelContextId = origChannel;
                     }
 
 

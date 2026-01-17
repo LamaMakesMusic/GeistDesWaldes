@@ -1,32 +1,33 @@
-﻿using Discord;
-using Discord.Commands;
-using System;
+﻿using System;
 using System.Threading.Tasks;
+using Discord;
+using Discord.Commands;
+using GeistDesWaldes.Users;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeistDesWaldes.Attributes
 {
     public class CommandFee : PreconditionAttribute
     {
-        private readonly int _priceTag;
-        public int PriceTag { get { return _priceTag; } }
+        public int PriceTag { get; }
 
         public CommandFee(int price)
         {
-            _priceTag = price;
+            PriceTag = price;
         }
 
         public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
         {
-            var server = (Server) services.GetService(typeof(Server));
-            var logger = (LogHandler) services.GetService(typeof(LogHandler));
+            LogHandler logger = services.GetService<LogHandler>();
+            ForestUserHandler userHandler = services.GetService<ForestUserHandler>();
 
-            var getUserResult = await server.ForestUserHandler.GetUser(context.User);
+            CustomRuntimeResult<ForestUser> getUserResult = await userHandler.GetUser(context.User);
 
             string errorReason = string.Empty;
 
             if (getUserResult.IsSuccess)
             {
-                if (!getUserResult.ResultValue.CanAfford(_priceTag))
+                if (!getUserResult.ResultValue.CanAfford(PriceTag))
                     errorReason = $"The user '{context.User.Username}' is lacking funds!";
             }
             else

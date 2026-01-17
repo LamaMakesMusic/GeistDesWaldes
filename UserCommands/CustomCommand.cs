@@ -7,6 +7,7 @@ using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.Misc;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ namespace GeistDesWaldes.UserCommands
         public string Name;
         public CommandMetaInfo[] CommandsToExecute;
 
-        public ulong TextChannelContextID;
+        public ulong TextChannelContextId;
         public float CooldownInSeconds;
         public int PriceTag;
 
@@ -50,7 +51,7 @@ namespace GeistDesWaldes.UserCommands
 
             SetName(commandName);
             CommandsToExecute = commands;
-            TextChannelContextID = textChannelContext;
+            TextChannelContextId = textChannelContext;
             CooldownInSeconds = cooldownInSeconds;
             PriceTag = fee;
             Embed = embed;
@@ -87,7 +88,7 @@ namespace GeistDesWaldes.UserCommands
                         Category.Commands.Remove(this.Name);
 
                     if (Category.Commands.Count == 0)
-                        server.CustomCommandHandler.CustomCommands.Categories.Remove(Category);
+                        server.GetModule<CustomCommandHandler>().CustomCommands.Categories.Remove(Category);
 
                     Category = null;
                 }
@@ -141,17 +142,17 @@ namespace GeistDesWaldes.UserCommands
             using (typeState)
             {
                 // Bundles Messages to avoid bot spamming a channel
-                CommandBundleEntry[] _entries = new CommandBundleEntry[commandLines.Length];
-                ChannelMessage[] _messageBundle = new ChannelMessage[commandLines.Length];
+                CommandBundleEntry[] entries = new CommandBundleEntry[commandLines.Length];
+                ChannelMessage[] messageBundle = new ChannelMessage[commandLines.Length];
 
                 for (int i = 0; i < commandLines.Length; i++)
                 {
-                    _entries[i] = new(i, _messageBundle);
-                    await Server.ExecuteMetaCommandAsync(commandLines[i], channelContext, context?.User, _entries[i]);
+                    entries[i] = new CommandBundleEntry(i, messageBundle);
+                    await Server.ExecuteMetaCommandAsync(commandLines[i], channelContext, context?.User, entries[i]);
                 }
 
                 int timeout = 3000;
-                while (_entries.Any(e => e.IsDone == false))
+                while (entries.Any(e => e.IsDone == false))
                 {
                     timeout -= 500;
                     await Task.Delay(500);
@@ -162,7 +163,7 @@ namespace GeistDesWaldes.UserCommands
                         
                         for (int d = 0; d < commandLines.Length; d++)
                         {
-                            if (_messageBundle[d] != null)
+                            if (messageBundle[d] != null)
                                 continue;
 
                             await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(Execute), $"{nameof(CustomCommand)} '{Name}' never got answer for '{@commandLines[d]}'!"));
@@ -186,7 +187,7 @@ namespace GeistDesWaldes.UserCommands
                 {
                     msg.SetTemplate(ChannelMessage.MessageTemplateOption.Neutral);
 
-                    ChannelMessageContent titleMessage = _messageBundle.FirstOrDefault(m => m != null)?.Contents.FirstOrDefault(c => c.Title.text != null);
+                    ChannelMessageContent titleMessage = messageBundle.FirstOrDefault(m => m != null)?.Contents.FirstOrDefault(c => c.Title.text != null);
 
                     if (titleMessage == default)
                         msg.AddContent(new ChannelMessageContent().SetTitle($"[ !{Name} ]"));
@@ -198,10 +199,10 @@ namespace GeistDesWaldes.UserCommands
                 }
 
 
-                for (int i = 0; i < _messageBundle.Length; i++)
+                for (int i = 0; i < messageBundle.Length; i++)
                 {
-                    if (_messageBundle[i] != null)
-                        msg.AppendContent(_messageBundle[i]);
+                    if (messageBundle[i] != null)
+                        msg.AppendContent(messageBundle[i]);
                 }
 
 
@@ -213,8 +214,8 @@ namespace GeistDesWaldes.UserCommands
         {
             channelContext = null;
 
-            if (TextChannelContextID != default)
-                channelContext = Task.Run(() => Launcher.Instance.GetChannel<IMessageChannel>(TextChannelContextID)).GetAwaiter().GetResult();
+            if (TextChannelContextId != default)
+                channelContext = Task.Run(() => Launcher.Instance.GetChannel<IMessageChannel>(TextChannelContextId)).GetAwaiter().GetResult();
 
             if (channelContext == null)
                 channelContext = context?.Channel;
@@ -223,7 +224,7 @@ namespace GeistDesWaldes.UserCommands
                 channelContext = Task.Run(() => Launcher.Instance.GetChannel<IMessageChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel)).GetAwaiter().GetResult();
 
             if (channelContext == null)
-                Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannelContext), $"Could not get {nameof(IMessageChannel)} from {nameof(TextChannelContextID)} '{TextChannelContextID}' nor {nameof(ICommandContext)}!"));
+                Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannelContext), $"Could not get {nameof(IMessageChannel)} from {nameof(TextChannelContextId)} '{TextChannelContextId}' nor {nameof(ICommandContext)}!"));
 
             return channelContext != null;
         }
@@ -234,7 +235,8 @@ namespace GeistDesWaldes.UserCommands
 
             for (int i = 0; i < converted.Length; i++)
             {
-                converted[i] = commandsToExecute[i].GetCommandLineString(Server.CultureInfo, additionalParameters);
+                if (commandsToExecute != null)
+                    converted[i] = commandsToExecute[i].GetCommandLineString(Server.CultureInfo, additionalParameters);
             }
 
             return converted;
@@ -243,7 +245,7 @@ namespace GeistDesWaldes.UserCommands
 
         public string[] ActionsToArray()
         {
-            List<string> result = new List<string>();
+            List<string> result = [];
 
             if (CommandsToExecute == null || CommandsToExecute.Length < 1)
                 result.Add(" - ");
@@ -285,7 +287,7 @@ namespace GeistDesWaldes.UserCommands
         }
         public string TargetChannelToString()
         {
-            return $"[{(TextChannelContextID != default ? Task.Run(() => Launcher.Instance.GetChannel<IChannel>(TextChannelContextID)).GetAwaiter().GetResult()?.Name : "Default")}]";
+            return $"[{(TextChannelContextId != 0 ? Task.Run(() => Launcher.Instance.GetChannel<IChannel>(TextChannelContextId)).GetAwaiter().GetResult()?.Name : "Default")}]";
         }
 
         public ChannelMessage ToMessage(ChannelMessage.MessageTemplateOption template = ChannelMessage.MessageTemplateOption.Information)
@@ -327,7 +329,7 @@ namespace GeistDesWaldes.UserCommands
             string[] parameters = null;
             if (arg1 != null)
             {
-                parameters = new string[] { arg1.User?.Username };
+                parameters = [arg1.User?.Username];
             }
 
             return Execute(arg1, parameters);
@@ -374,16 +376,16 @@ namespace GeistDesWaldes.UserCommands
 
         public int CompareTo(CustomCommand c2)
         {
-            if (this.Category == null && c2.Category == null)
-                return this.Name.CompareTo(c2.Name);
+            if (Category == null && c2.Category == null)
+                return string.Compare(Name, c2.Name, Server.CultureInfo, CompareOptions.Ordinal);
 
-            if (this.Category == null && c2.Category != null)
+            if (Category == null && c2.Category != null)
                 return -1;
 
-            if (this.Category != null && c2.Category == null)
+            if (Category != null && c2.Category == null)
                 return 1;
 
-            return this.Category.Name.CompareTo(c2.Category.Name);
+            return string.Compare(Category.Name, c2.Category.Name, Server.CultureInfo, CompareOptions.Ordinal);
         }
     }
 
@@ -392,7 +394,7 @@ namespace GeistDesWaldes.UserCommands
         public int Position;
         public ChannelMessage[] Bundle;
         
-        private bool _isDone = false;
+        private bool _isDone;
         public bool IsDone => _isDone;
 
 

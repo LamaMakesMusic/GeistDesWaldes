@@ -5,10 +5,12 @@ using GeistDesWaldes.Communication;
 using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.UserCommands;
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using GeistDesWaldes.Misc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeistDesWaldes.Events
 {
@@ -122,7 +124,7 @@ namespace GeistDesWaldes.Events
             {
                 default:
                 case RepetitionOption.Once:
-                    await CommandToExecute.Server.ScheduleHandler.RemoveEvent(this, Launcher.Instance.DiscordClient.CurrentUser);
+                    await CommandToExecute.Server.Services.GetService<ScheduleHandler>().RemoveEvent(this, Launcher.Instance.DiscordClient.CurrentUser);
                     return;
 
                 case RepetitionOption.Minutely:
@@ -165,7 +167,7 @@ namespace GeistDesWaldes.Events
 
                 ExecutionTime = changedDate;
 
-                await server.ScheduleHandler.SaveScheduleToFile();
+                await server.Services.GetService<ScheduleHandler>().SaveScheduleToFile();
 
                 KickOffTimer();
 
@@ -179,14 +181,14 @@ namespace GeistDesWaldes.Events
         }
 
 
-        public ChannelMessage ToMessage(ChannelMessage.MessageTemplateOption template = ChannelMessage.MessageTemplateOption.Events)
+        public ChannelMessage ToMessage(CultureInfo culture, ChannelMessage.MessageTemplateOption template = ChannelMessage.MessageTemplateOption.Events)
         {
-            var msg = new ChannelMessage(null)
+            ChannelMessage msg = new ChannelMessage(null)
                 .SetTemplate(template)
                 .AddContent(
                     new ChannelMessageContent()
                     .SetTitle($"{CommandToExecute?.Name} ({ReplyDictionary.GetOutputTextForEnum(Repetition)})")
-                    .SetDescription(ExecutionTime.ToString())
+                    .SetDescription(ExecutionTime.ToString(culture))
                 ).AddContent(
                     new ChannelMessageContent()
                     .SetTitle(ReplyDictionary.ACTIONS)

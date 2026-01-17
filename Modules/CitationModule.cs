@@ -15,9 +15,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CitationsPermission")]
     [Group("quote")]
     [Alias("quotes", "citation", "citations")]
-    public class CitationModule : ModuleBase<CommandContext>, IServerModule
+    public class CitationModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Priority(-1)]
         [Command]
@@ -29,9 +29,9 @@ namespace GeistDesWaldes.Modules
                 CustomRuntimeResult<Citation[]> result;
 
                 if (author != null)
-                    result = _Server.CitationsHandler.FindQuotes(author: author?.Username);
+                    result = Server.GetModule<CitationsHandler>().FindQuotes(author: author.Username);
                 else
-                    result = _Server.CitationsHandler.GetAllQuotes();
+                    result = Server.GetModule<CitationsHandler>().GetAllQuotes();
 
                 if (result.IsSuccess)
                 {
@@ -45,7 +45,7 @@ namespace GeistDesWaldes.Modules
                     ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Citations)
                             .AddContent(new ChannelMessageContent()
-                                .SetTitle(quote.ToStringHeader(_Server.CultureInfo))
+                                .SetTitle(quote.ToStringHeader(Server.CultureInfo))
                                 .SetDescription(quote.ToStringBody())
                             );
 
@@ -66,14 +66,14 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                var result = await _Server.CitationsHandler.GetQuote(quoteId);
+                CustomRuntimeResult<Citation> result = await Server.GetModule<CitationsHandler>().GetQuote(quoteId);
 
-                if (result.IsSuccess && result.ResultValue is Citation quote)
+                if (result.IsSuccess && result.ResultValue is { } quote)
                 {
                     ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Citations)
                             .AddContent(new ChannelMessageContent()
-                                .SetTitle(quote.ToStringHeader(_Server.CultureInfo))
+                                .SetTitle(quote.ToStringHeader(Server.CultureInfo))
                                 .SetDescription(quote.ToStringBody())
                             );
 
@@ -94,7 +94,7 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                var result = _Server.CitationsHandler.FindQuotes(date, author?.Username, content);
+                CustomRuntimeResult<Citation[]> result = Server.GetModule<CitationsHandler>().FindQuotes(date, author?.Username, content);
                 if (result.IsSuccess)
                 {
                     StringBuilder bodyBuilder = new StringBuilder();
@@ -140,8 +140,8 @@ namespace GeistDesWaldes.Modules
                 if (content.Length > 245)
                     content = $"{content.Substring(0, 245)} [...]";
 
-                Citation quote = new Citation(author.Username, content, DateTime.Today);
-                var result = await _Server.CitationsHandler.AddQuote(quote);
+                Citation quote = new(author.Username, content, DateTime.Today);
+                RuntimeResult result = await Server.GetModule<CitationsHandler>().AddQuote(quote);
 
                 if (result.IsSuccess)
                 {
@@ -166,17 +166,17 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "CitationsAdminPermission")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CitationsAdminPermission")] 
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CitationsAdminPermission")]
-        public class CitationAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class CitationAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("remove")]
             [Summary("Removes a quote.")]
-            public async Task<RuntimeResult> RemoveCitationAsync(int citationID)
+            public async Task<RuntimeResult> RemoveCitationAsync(int citationId)
             {
                 try
                 {
-                    var result = await _Server.CitationsHandler.RemoveQuote(citationID);
+                    RuntimeResult result = await Server.GetModule<CitationsHandler>().RemoveQuote(citationId);
                     if (result.IsSuccess)
                     {
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -209,7 +209,7 @@ namespace GeistDesWaldes.Modules
                     if (newContent.Length > 245)
                         newContent = $"{newContent.Substring(0, 245)} [...]";
 
-                    var result = await _Server.CitationsHandler.GetQuote(quoteId);
+                    CustomRuntimeResult<Citation> result = await Server.GetModule<CitationsHandler>().GetQuote(quoteId);
 
                     if (result.IsSuccess)
                     {
@@ -217,7 +217,7 @@ namespace GeistDesWaldes.Modules
 
                         result.ResultValue.Content = newContent;
 
-                        await _Server.CitationsHandler.SaveQuotesToFile();
+                        await Server.GetModule<CitationsHandler>().SaveQuotesToFile();
 
                         ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Citations)

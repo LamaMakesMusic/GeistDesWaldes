@@ -15,15 +15,15 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "StatisticsPermissions")]
     [Group("statistic")]
     [Alias("statistics")]
-    public class StatisticsModule : ModuleBase<CommandContext>, IServerModule
+    public class StatisticsModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Group("command")]
         [Alias("commands")]
-        public class CommandStatisticsModule : ModuleBase<CommandContext>, IServerModule
+        public class CommandStatisticsModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("get")]
             [Summary("Get statistics for called commands.")]
@@ -34,7 +34,7 @@ namespace GeistDesWaldes.Modules
 
                 try
                 {
-                    CustomRuntimeResult<CommandStatistic> getStatResult = _Server.CommandStatisticsHandler.GetStatistic(name);
+                    CustomRuntimeResult<CommandStatistic> getStatResult = Server.GetModule<CommandStatisticsHandler>().GetStatistic(name);
 
                     if (!getStatResult.IsSuccess)
                         return getStatResult;
@@ -62,7 +62,7 @@ namespace GeistDesWaldes.Modules
 
                     StringBuilder nameListBuilder = new();
 
-                    foreach (CommandStatistic stat in _Server.CommandStatisticsHandler.GetStatistics(includeInactive))
+                    foreach (CommandStatistic stat in Server.GetModule<CommandStatisticsHandler>().GetStatistics(includeInactive))
                     {
                         nameListBuilder.AppendLine(stat.ToString());
                     }
@@ -85,9 +85,9 @@ namespace GeistDesWaldes.Modules
             [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "StatisticsAdminPermissions")]
             [RequireIsBot(Group = "StatisticsAdminPermissions")]
             // [Group("admin")]
-            public class StatisticsAdminModule : ModuleBase<CommandContext>, IServerModule
+            public class StatisticsAdminModule : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
 
                 [Command("create")]
@@ -96,7 +96,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        CustomRuntimeResult<CommandStatistic> createResult = await _Server.CommandStatisticsHandler.CreateStatistic(name, start, end);
+                        CustomRuntimeResult<CommandStatistic> createResult = await Server.GetModule<CommandStatisticsHandler>().CreateStatistic(name, start, end);
 
                         if (!createResult.IsSuccess)
                             return createResult;
@@ -123,7 +123,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        CustomRuntimeResult<CommandStatistic> deleteResult = await _Server.CommandStatisticsHandler.DeleteStatistic(name);
+                        CustomRuntimeResult<CommandStatistic> deleteResult = await Server.GetModule<CommandStatisticsHandler>().DeleteStatistic(name);
 
                         if (!deleteResult.IsSuccess)
                             return deleteResult;
@@ -151,7 +151,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        CustomRuntimeResult<CommandStatistic> result = await _Server.CommandStatisticsHandler.StartRecordingStatistic(name);
+                        CustomRuntimeResult<CommandStatistic> result = await Server.GetModule<CommandStatisticsHandler>().StartRecordingStatistic(name);
 
                         if (!result.IsSuccess)
                             return result;
@@ -179,7 +179,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        CustomRuntimeResult<CommandStatistic> result = await _Server.CommandStatisticsHandler.StopRecordingStatistic(name);
+                        CustomRuntimeResult<CommandStatistic> result = await Server.GetModule<CommandStatisticsHandler>().StopRecordingStatistic(name);
 
                         if (!result.IsSuccess)
                             return result;

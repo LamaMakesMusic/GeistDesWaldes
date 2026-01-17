@@ -8,20 +8,20 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 {
     public class TwitchLivestreamIntervalActionWatchdog
     {
+        private readonly Server _server;
         private readonly ServerConfiguration _serverConfiguration;
-        private readonly TwitchLivestreamIntervalActionHandler _intervalHandler;
 
         private DateTime _lastMessageSentAt = DateTime.Now;
         private int _messageCount;
-        private bool _running = false;
+        private bool _running;
 
         private int _actionIndex = -1;
 
 
-        public TwitchLivestreamIntervalActionWatchdog(ServerConfiguration config, TwitchLivestreamIntervalActionHandler messageHandler)
+        public TwitchLivestreamIntervalActionWatchdog(Server server, ServerConfiguration config)
         {
+            _server = server;
             _serverConfiguration = config;
-            _intervalHandler = messageHandler;
         }
 
 
@@ -44,7 +44,7 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 
             _messageCount++;
 
-            TriggerAction().SafeAsync<TwitchLivestreamIntervalActionWatchdog>(_serverConfiguration.GuildId);
+            TriggerAction().SafeAsync<TwitchLivestreamIntervalActionWatchdog>(_server.GuildId);
         }
 
         private async Task TriggerAction()
@@ -59,7 +59,7 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 
                 _lastMessageSentAt = DateTime.Now;
                 _messageCount = 0;
-                _actionIndex = _intervalHandler.GetNextAction(_actionIndex, out CustomCommand command);
+                _actionIndex = _server.GetModule<TwitchLivestreamIntervalActionHandler>().GetNextAction(_actionIndex, out CustomCommand command);
 
                 if (command != null)
                 {

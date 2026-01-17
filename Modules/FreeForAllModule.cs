@@ -11,22 +11,23 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
 
 namespace GeistDesWaldes.Modules
 {
     [RequireTimeJoined("0", "1", Group = "Free4AllPermission")]
     [RequireIsFollower(Group = "Free4AllPermission")]
     [RequireIsBot(Group = "Free4AllPermission")]
-    public class FreeForAllModule : ModuleBase<CommandContext>, IServerModule
+    public class FreeForAllModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Command("help")]
         [Summary("Lists available commands.")]
         public async Task HelpAsync()
         {
-            ChannelMessage msg = _Server.CommandInfoHandler.FactoryCommandHelpMessage;
-            msg.AppendContent(_Server.CommandInfoHandler.CustomCommandHelpMessage);
+            ChannelMessage msg = Server.GetModule<CommandInfoHandler>().FactoryCommandHelpMessage;
+            msg.AppendContent(Server.GetModule<CommandInfoHandler>().CustomCommandHelpMessage);
 
             msg.Channel = Context.Channel;
             
@@ -36,19 +37,19 @@ namespace GeistDesWaldes.Modules
         [Summary("Lists detailed info for given command or group.")]
         public async Task<RuntimeResult> HelpAsync([Remainder] string commandName)
         {
-            CustomRuntimeResult result = null;
+            CustomRuntimeResult result;
 
             string header = string.Empty;
             string body = string.Empty;
 
             string[] groupQuery = commandName.TrimStart().TrimEnd().Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            var groupResult = await _Server.CommandInfoHandler.GetCommandsInGroupAsync(groupQuery);
+            CustomRuntimeResult<CommandMetaInfo[]> groupResult = await Server.GetModule<CommandInfoHandler>().GetCommandsInGroupAsync(groupQuery);
             result = groupResult;
 
             if (groupResult.IsSuccess && groupResult.ResultValue != null)
             {
-                StringBuilder bodyBuilder = new StringBuilder();
+                StringBuilder bodyBuilder = new();
 
                 List<string> filtered = new List<string>();
                 for (int i = 0; i < groupResult.ResultValue.Length; i++)
@@ -57,12 +58,12 @@ namespace GeistDesWaldes.Modules
                     if (groupResult.ResultValue[i].Groups.Count == groupQuery.Length)
                     {
                         if (string.IsNullOrEmpty(groupResult.ResultValue[i].Name))
-                            line = await _Server.CommandInfoHandler.GetCommandInfoStringAsync(groupResult.ResultValue[i], 99);
+                            line = await Server.GetModule<CommandInfoHandler>().GetCommandInfoStringAsync(groupResult.ResultValue[i], 99);
                         else
-                            line = await _Server.CommandInfoHandler.GetCommandInfoStringAsync(groupResult.ResultValue[i], groupQuery.Length + 2);
+                            line = await Server.GetModule<CommandInfoHandler>().GetCommandInfoStringAsync(groupResult.ResultValue[i], groupQuery.Length + 2);
                     }
                     else
-                        line = await _Server.CommandInfoHandler.GetCommandInfoStringAsync(groupResult.ResultValue[i], groupQuery.Length + 1);
+                        line = await Server.GetModule<CommandInfoHandler>().GetCommandInfoStringAsync(groupResult.ResultValue[i], groupQuery.Length + 1);
 
                     if (!filtered.Contains(line))
                         filtered.Add(line);
@@ -77,11 +78,11 @@ namespace GeistDesWaldes.Modules
             }
             else
             {
-                var getCommandResult = await _Server.CommandInfoHandler.GetCommandInfoAsync(commandName);
-                if (getCommandResult.IsSuccess && getCommandResult.ResultValue is CommandMeta.CommandMetaInfo command)
+                CustomRuntimeResult<CommandMetaInfo> getCommandResult = await Server.GetModule<CommandInfoHandler>().GetCommandInfoAsync(commandName);
+                if (getCommandResult.IsSuccess && getCommandResult.ResultValue is { } command)
                 {
                     header = command.GetFullName();
-                    body = await _Server.CommandInfoHandler.GetCommandInfoStringAsync(command, 99);
+                    body = await Server.GetModule<CommandInfoHandler>().GetCommandInfoStringAsync(command, 99);
 
                     result = getCommandResult;
                 }
@@ -94,7 +95,7 @@ namespace GeistDesWaldes.Modules
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Information)
                             .AddContent(new ChannelMessageContent()
                                 .SetTitle(header)
-                                .SetDescription(body.ToString())
+                                .SetDescription(body)
                             );
 
                 await msg.SendAsync();   
@@ -113,7 +114,7 @@ namespace GeistDesWaldes.Modules
                 textToEcho = textToEcho.Remove(textToEcho.Length - 1);
             }
 
-            ChannelMessage msg = new ChannelMessage(Context);
+            ChannelMessage msg = new(Context);
             
             foreach (string line in textToEcho.Split("\\n", StringSplitOptions.RemoveEmptyEntries))
                 msg.AddContent(new ChannelMessageContent().SetDescription(line));
@@ -127,15 +128,15 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                if (Context.Channel is TwitchMessageChannel twitchChannel)
+                if (Context.Channel is TwitchMessageChannel)
                     return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_DISCORD} -> '{Context?.Channel?.Name}' is a {nameof(TwitchMessageChannel)}.");
 
                 if (user == null)
                     user = (SocketUser)Context.User;
 
-                var time = await RequireTimeJoined.GetTimeJoinedAsync(user, _Server.LogHandler);
+                TimeObject time = await RequireTimeJoined.GetTimeJoinedAsync(user, Server.LogHandler);
 
-                StringBuilder timeBuilder = new StringBuilder();
+                StringBuilder timeBuilder = new();
                 string body = await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_PART_OF_Y_FOR_Z_TIME, "{x}", $"_{user.Username}_"), "{y}", $"_{Context.Guild.Name}_");
 
                 if (time.Years > 0)
@@ -188,9 +189,9 @@ namespace GeistDesWaldes.Modules
         [Summary("Prints a random event that happened on this day.")]
         public async Task<RuntimeResult> TodayEventAsync()
         {
-            var result = await WikipediaWrapper.GetRandomEntry();
+            CustomRuntimeResult<WikipediaWrapper.SectionContent> result = await WikipediaWrapper.GetRandomEntry();
 
-            if (result.IsSuccess && result.ResultValue is WikipediaWrapper.SectionContent entry)
+            if (result.IsSuccess && result.ResultValue is { } entry)
             {
                 string body = entry.Content;
 
@@ -202,7 +203,7 @@ namespace GeistDesWaldes.Modules
                 ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
                             .AddContent(new ChannelMessageContent()
-                                .SetTitle($"{DateTime.Today.ToString("dd. MMMM", _Server.CultureInfo)} {entry.Year} [{entry.Section}]")
+                                .SetTitle($"{DateTime.Today.ToString("dd. MMMM", Server.CultureInfo)} {entry.Year} [{entry.Section}]")
                                 .SetDescription(body))
                             .SetFooter(entry.Source, EmojiDictionary.WIKIPEDIA_LOGO)
                             .SetURL(entry.Source);
@@ -241,9 +242,9 @@ namespace GeistDesWaldes.Modules
         [RequireUserPermission(GuildPermission.Administrator, Group = "Free4AllAdminPermission")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "Free4AllAdminPermission")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "Free4AllAdminPermission")]
         [RequireIsBot(Group = "Free4AllAdminPermission")]
-        public class FreeForAllAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class FreeForAllAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("echoTitle")]
             [Summary("Repeats Message as a Title.")]
@@ -255,7 +256,7 @@ namespace GeistDesWaldes.Modules
                     textToEcho = textToEcho.Remove(textToEcho.Length - 1);
                 }
 
-                ChannelMessage msg = new ChannelMessage(Context);
+                ChannelMessage msg = new(Context);
 
                 msg.AddContent(new ChannelMessageContent().SetTitle(textToEcho));
 
@@ -272,7 +273,7 @@ namespace GeistDesWaldes.Modules
                     textToEcho = textToEcho.Remove(textToEcho.Length - 1);
                 }
 
-                ChannelMessage msg = new ChannelMessage(Context);
+                ChannelMessage msg = new(Context);
 
                 msg.SetFooter(textToEcho);
 
@@ -287,12 +288,12 @@ namespace GeistDesWaldes.Modules
                 if (string.IsNullOrWhiteSpace(keyword))
                     return CustomRuntimeResult.FromError(ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY);
 
-                CustomRuntimeResult<Photo> imageResult = await  _Server.FlickrHandler.GetRandomImage(keyword);
+                CustomRuntimeResult<Photo> imageResult = await  Server.GetModule<FlickrHandler>().GetRandomImage(keyword);
 
                 if (!imageResult.IsSuccess)
                     return imageResult;
 
-                if (imageResult.ResultValue is not Photo img || img == null)
+                if (imageResult.ResultValue is not { } img)
                     return CustomRuntimeResult.FromError($"Could not get {nameof(Photo)} from Result Value!");
 
                 ChannelMessage msg = new ChannelMessage(Context)

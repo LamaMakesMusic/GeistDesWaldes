@@ -9,9 +9,9 @@ namespace GeistDesWaldes.Modules
     [RequireUserPermission(GuildPermission.Administrator, Group = "DiscordInterfacePermissions")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "DiscordInterfacePermissions")]
     [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "DiscordInterfacePermissions")]
     [RequireIsBot(Group = "DiscordInterfacePermissions")]
-    public class DiscordInterfaceModule : ModuleBase<CommandContext>, IServerModule
+    public class DiscordInterfaceModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Group("channel")]
         [Alias("channels")]

@@ -20,7 +20,7 @@ namespace GeistDesWaldes.Audio
 {
     public class AudioHandler : BaseHandler
     {
-        public static readonly string[] SUPPORTED_AUDIO_FILE_EXTENSIONS = new string[] { ".mp3", ".ogg", ".wav" };
+        public static readonly string[] SupportedAudioFileExtensions = [".mp3", ".ogg", ".wav"];
         public const string AUDIO_DIRECTORY_NAME = "Audio Files";
 
         public readonly string AudioDirectoryPath;
@@ -30,49 +30,51 @@ namespace GeistDesWaldes.Audio
 
         private readonly ConcurrentQueue<AudioQueueEntry> _audioQueue = new ConcurrentQueue<AudioQueueEntry>();
 
-        private IAudioClient _audioClient = null;
-        private AudioOutStream _discordOutStream = null;
+        private IAudioClient _audioClient;
+        private AudioOutStream _discordOutStream;
 
         public AudioHandler(Server server) : base(server)
         {
-            AudioDirectoryPath = Path.GetFullPath(Path.Combine(_Server.ServerFilesDirectoryPath, AUDIO_DIRECTORY_NAME));
+            AudioDirectoryPath = Path.GetFullPath(Path.Combine(Server.ServerFilesDirectoryPath, AUDIO_DIRECTORY_NAME));
         }
 
-
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
+            await base.OnServerStartUp();
 
-            InitializeAudioHandler().SafeAsync<AudioHandler>(_Server.LogHandler, StartAudioQueueProcessing);
+            await InitializeAudioHandler();
+            StartAudioQueueProcessing();
         }
-        internal override void OnServerShutdown(object source, EventArgs e)
+        
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
+            await base.OnServerShutdown();
 
             _cancelQueueProcessorSource?.Cancel();
 
             _audioQueue.Clear();
 
-            Task.Run(LeaveVoiceChannel).GetAwaiter().GetResult();
+            await LeaveVoiceChannel();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
+            await base.OnCheckIntegrity();
 
-            CheckIntegrity().SafeAsync<AudioHandler>(_Server.LogHandler);
+            await CheckIntegrity();
         }
 
         private async Task CheckIntegrity()
         {
             if (_audioQueueProcessor == null)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(CheckIntegrity), "Audio Handler ERROR: Queue Processor not running!"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(CheckIntegrity), "Audio Handler ERROR: Queue Processor not running!"));
 
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Audio Handler OK."), (int)ConsoleColor.DarkGreen);
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Audio Handler OK."), (int)ConsoleColor.DarkGreen);
         }
 
         private async Task InitializeAudioHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance<object>(_Server.LogHandler, AudioDirectoryPath);
+            await GenericXmlSerializer.EnsurePathExistance<object>(Server.LogHandler, AudioDirectoryPath);
         }
 
         private void StartAudioQueueProcessing()
@@ -84,7 +86,7 @@ namespace GeistDesWaldes.Audio
         {
             _cancelQueueProcessorSource = new CancellationTokenSource();
 
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(ProcessAudioQueue), "Started."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(ProcessAudioQueue), "Started."));
 
             try
             {
@@ -108,7 +110,7 @@ namespace GeistDesWaldes.Audio
                             }
                         }
                         else
-                            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Could not dequeue next entry!"));
+                            await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Could not dequeue next entry!"));
                     }
                     else if (exitTimerInMs > 0)
                     {
@@ -130,7 +132,7 @@ namespace GeistDesWaldes.Audio
                 _audioQueueProcessor = null;
                 _cancelQueueProcessorSource = null;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Stopped."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Stopped."));
             }
         }
 
@@ -139,11 +141,11 @@ namespace GeistDesWaldes.Audio
         {
             try
             {
-                IGuildUser botUser = _Server.Guild.GetUser(Launcher.Instance.DiscordClient.CurrentUser.Id);
+                IGuildUser botUser = Server.Guild.GetUser(Launcher.Instance.DiscordClient.CurrentUser.Id);
                 if (botUser == null)
                     throw new Exception($"Could not get bot User from Guild!");
 
-                IVoiceChannel channel = null;
+                IVoiceChannel channel;
 
                 if (entry.Context.User is MetaUser metaUser) 
                 { 
@@ -156,12 +158,12 @@ namespace GeistDesWaldes.Audio
 
                 if (channel == null)
                 {
-                    ulong id = (botUser.VoiceChannel ?? _Server.RuntimeConfig.DefaultBotVoiceChannel)?.Id ?? 0;
-                    channel = id == 0 ? null : _Server.Guild.GetVoiceChannel(id);
+                    ulong id = (botUser.VoiceChannel ?? Server.RuntimeConfig.DefaultBotVoiceChannel)?.Id ?? 0;
+                    channel = id == 0 ? null : Server.Guild.GetVoiceChannel(id);
 
                     if (channel == null || !(channel as SocketVoiceChannel).ConnectedUsers.Any(u => u.Id != botUser.Id))
                     {
-                        foreach (SocketVoiceChannel svc in _Server.Guild.VoiceChannels)
+                        foreach (SocketVoiceChannel svc in Server.Guild.VoiceChannels)
                         {
                             if (!svc.ConnectedUsers.Any(u => u.Id != botUser.Id))
                                 continue;
@@ -205,7 +207,7 @@ namespace GeistDesWaldes.Audio
                 if (_audioClient == null)
                     return CustomRuntimeResult.FromError($"AudioClient not found! => '{channel.Name}' ({channel.Guild.Name}): '{entry.Path}'");
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(SayAndLogAudio), $"In '{channel.Name}' ({channel.Guild.Name}): '{entry.Path}'"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(SayAndLogAudio), $"In '{channel.Name}' ({channel.Guild.Name}): '{entry.Path}'"));
 
                 if (_discordOutStream == null)
                     _discordOutStream = _audioClient.CreatePCMStream(AudioApplication.Mixed, bitrate: channel.Bitrate);
@@ -220,7 +222,7 @@ namespace GeistDesWaldes.Audio
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SayAndLogAudio), "Failed playing Audio File!", e));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SayAndLogAudio), "Failed playing Audio File!", e));
 
                 if (_audioClient != null)
                     await _audioClient.StopAsync();
@@ -235,34 +237,34 @@ namespace GeistDesWaldes.Audio
             }
         }
 
-        public async Task<RuntimeResult> QueueAudioFileAtPath(string localPathOrURL, ICommandContext context)
+        public async Task<RuntimeResult> QueueAudioFileAtPath(string localPathOrUrl, ICommandContext context)
         {
             AudioQueueEntry.SourceOption source = AudioQueueEntry.SourceOption.Local;
-            localPathOrURL = localPathOrURL.Trim().Replace("http://", "").Replace("https://", "").Replace("www.", "");
+            localPathOrUrl = localPathOrUrl.Trim().Replace("http://", "").Replace("https://", "").Replace("www.", "");
 
-            if (localPathOrURL.StartsWith("cdn.discordapp.com/attachments/"))
+            if (localPathOrUrl.StartsWith("cdn.discordapp.com/attachments/"))
             {
-                localPathOrURL = $"https://{localPathOrURL}";
+                localPathOrUrl = $"https://{localPathOrUrl}";
                 source = AudioQueueEntry.SourceOption.Web;
             }
             else
             {
-                FileInfo audioFile = new FileInfo(Path.GetFullPath(localPathOrURL, AudioDirectoryPath));
-                localPathOrURL = audioFile.FullName;
+                FileInfo audioFile = new FileInfo(Path.GetFullPath(localPathOrUrl, AudioDirectoryPath));
+                localPathOrUrl = audioFile.FullName;
 
-                if (!localPathOrURL.StartsWith(AudioDirectoryPath))
+                if (!localPathOrUrl.StartsWith(AudioDirectoryPath))
                     return CustomRuntimeResult.FromError(ReplyDictionary.PATH_MUST_NOT_END_ABOVE_START_DIRECTORY);
 
                 if (audioFile.Exists)
-                    localPathOrURL = audioFile.FullName;
+                    localPathOrUrl = audioFile.FullName;
                 else
-                    return CustomRuntimeResult.FromError($"{ReplyDictionary.FILE_DOES_NOT_EXIST} ('{localPathOrURL}')");
+                    return CustomRuntimeResult.FromError($"{ReplyDictionary.FILE_DOES_NOT_EXIST} ('{localPathOrUrl}')");
             }
 
-            if (!SUPPORTED_AUDIO_FILE_EXTENSIONS.Contains(Path.GetExtension(localPathOrURL)))
+            if (!SupportedAudioFileExtensions.Contains(Path.GetExtension(localPathOrUrl)))
                 return CustomRuntimeResult.FromError(ReplyDictionary.FILE_TYPE_NOT_SUPPORTED);
 
-            return await QueueAndAwaitAudio(new AudioQueueEntry(localPathOrURL, source, context));
+            return await QueueAndAwaitAudio(new AudioQueueEntry(localPathOrUrl, source, context));
         }
         private async Task<RuntimeResult> QueueAndAwaitAudio(AudioQueueEntry entry)
         {
@@ -274,7 +276,7 @@ namespace GeistDesWaldes.Audio
                 int totalTimeoutMs = 1000 + (ConfigurationHandler.Shared.AudioCommandTimeOutInSeconds * 1000) * Math.Max(1, _audioQueue.Count);
                 int timeOutInMs = totalTimeoutMs;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(QueueAndAwaitAudio), $"Enqueued audio '{entry}'. (Position {_audioQueue.Count})"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(QueueAndAwaitAudio), $"Enqueued audio '{entry}'. (Position {_audioQueue.Count})"));
 
                 if (_audioQueueProcessor == null)
                     StartAudioQueueProcessing();
@@ -343,7 +345,7 @@ namespace GeistDesWaldes.Audio
                     }
 
                     string fullPath = string.IsNullOrWhiteSpace(path) ? parentDirectoryFullPath : Path.Combine(parentDirectoryFullPath, path);
-                    string[] files = new string[] { fullPath };
+                    string[] files = [fullPath];
 
 
                     // i.a. get all files in the directory
@@ -352,21 +354,21 @@ namespace GeistDesWaldes.Audio
                         FileAttributes attr = File.GetAttributes(fullPath);
 
                         if (attr.HasFlag(FileAttributes.Directory))
-                            files = Directory.EnumerateFiles(fullPath, "*.*", SearchOption.AllDirectories).Where(s => SUPPORTED_AUDIO_FILE_EXTENSIONS.Contains(Path.GetExtension(s), StringComparer.OrdinalIgnoreCase)).ToArray();
+                            files = Directory.EnumerateFiles(fullPath, "*.*", SearchOption.AllDirectories).Where(s => SupportedAudioFileExtensions.Contains(Path.GetExtension(s), StringComparer.OrdinalIgnoreCase)).ToArray();
                     }
                     catch (FileNotFoundException)
                     {
-                        await _Server.LogHandler.Log(new Discord.LogMessage(Discord.LogSeverity.Warning, nameof(GetAllFilesInPaths), $"{ReplyDictionary.FILE_DOES_NOT_EXIST}: '{fullPath}'!"));
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(GetAllFilesInPaths), $"{ReplyDictionary.FILE_DOES_NOT_EXIST}: '{fullPath}'!"));
                         continue;
                     }
 
 
-                    if (files != null && files.Length > 0)
+                    if (files.Length > 0)
                         result.AddRange(files);
                 }
                 catch (Exception e)
                 {
-                    await _Server.LogHandler.Log(new Discord.LogMessage(Discord.LogSeverity.Error, nameof(GetAllFilesInPaths), "", e));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetAllFilesInPaths), "", e));
                 }
             }
 

@@ -11,6 +11,7 @@ using TwitchLib.Api;
 using TwitchLib.Api.Core;
 using TwitchLib.Api.Helix.Models.Chat;
 using TwitchLib.Api.Helix.Models.Streams.GetStreams;
+using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using TwitchLib.Client;
 using TwitchLib.Client.Models;
 using TwitchLib.EventSub.Websockets;
@@ -66,7 +67,7 @@ namespace GeistDesWaldes.TwitchIntegration
             }
         }
 
-        public TwitchAPI API;
+        public TwitchAPI Api;
 
         private string _botTwitchId;
         public string BotTwitchId 
@@ -75,7 +76,7 @@ namespace GeistDesWaldes.TwitchIntegration
             {
                 if (string.IsNullOrWhiteSpace(_botTwitchId) && !string.IsNullOrWhiteSpace(ConfigurationHandler.Shared.Secrets.TwitchBotUsername))
                 {
-                    var users = Task.Run(() => ValidatedAPICall(API.Helix.Users.GetUsersAsync(logins: new List<string>() { ConfigurationHandler.Shared.Secrets.TwitchBotUsername }))).GetAwaiter().GetResult()?.Users;
+                    User[] users = Task.Run(() => ValidatedApiCall(Api.Helix.Users.GetUsersAsync(logins: new List<string>() { ConfigurationHandler.Shared.Secrets.TwitchBotUsername }))).GetAwaiter().GetResult()?.Users;
 
                     _botTwitchId = users?[0]?.Id;
                 }
@@ -108,7 +109,7 @@ namespace GeistDesWaldes.TwitchIntegration
             if (string.IsNullOrWhiteSpace(channelId))
                 throw new Exception($"Could not get channel id for channel '{channelName}'");
 
-            return (await ValidatedAPICall(Instance.API.Helix.Chat.GetChattersAsync(channelId, Instance.BotTwitchId))).Data.Select(n => n.UserLogin).ToList();
+            return (await ValidatedApiCall(Instance.Api.Helix.Chat.GetChattersAsync(channelId, Instance.BotTwitchId))).Data.Select(n => n.UserLogin).ToList();
         }
 
         public static async Task SendAnnouncement(string channelName, string message, AnnouncementColors color = null)
@@ -118,7 +119,7 @@ namespace GeistDesWaldes.TwitchIntegration
             if (string.IsNullOrWhiteSpace(channelId))
                 throw new Exception($"Could not get channel id for channel '{channelName}'");
 
-            await ValidatedAPICall(Instance.API.Helix.Chat.SendChatAnnouncementAsync(channelId, Instance.BotTwitchId, message, color));
+            await ValidatedApiCall(Instance.Api.Helix.Chat.SendChatAnnouncementAsync(channelId, Instance.BotTwitchId, message, color));
         }
 
         public static async Task SendShoutout(string channelName, string userToShoutout)
@@ -138,7 +139,7 @@ namespace GeistDesWaldes.TwitchIntegration
                         return server.RuntimeConfig.ChannelOwner.Id;
                 }
 
-                return (await ValidatedAPICall(Instance.API.Helix.Users.GetUsersAsync(logins: [channelName])))?.Users?[0]?.Id;
+                return (await ValidatedApiCall(Instance.Api.Helix.Users.GetUsersAsync(logins: [channelName])))?.Users?[0]?.Id;
             }
             catch (Exception ex)
             {
@@ -152,7 +153,7 @@ namespace GeistDesWaldes.TwitchIntegration
         {
             try
             {
-                GetStreamsResponse streamResponse = await ValidatedAPICall(Instance.API.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
+                GetStreamsResponse streamResponse = await ValidatedApiCall(Instance.Api.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
                 return streamResponse.Streams[0];
             }
             catch (Exception ex)
@@ -166,7 +167,6 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public TwitchIntegrationHandler()
         {
-            Launcher.OnShutdown += OnShutdown;
             TwitchAuthentication.OnLog += LogEventHandler;
         }
 
@@ -177,7 +177,7 @@ namespace GeistDesWaldes.TwitchIntegration
             {
                 try
                 {
-                    await SetupAPI();
+                    await SetupApi();
                 }
                 catch (Exception e)
                 {
@@ -185,10 +185,8 @@ namespace GeistDesWaldes.TwitchIntegration
                 }
             }
         }
-        private void OnShutdown(object source, EventArgs args)
+        public Task OnShutdownAsync()
         {
-            Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnShutdown), "Stopping Twitch Client...")).SafeAsync<TwitchIntegrationHandler>(Launcher.Instance.LogHandler);
-
             TwitchAuthentication.OnLog -= LogEventHandler;
             
             foreach (TwitchIntegrationClient client in Clients.Values)
@@ -197,9 +195,10 @@ namespace GeistDesWaldes.TwitchIntegration
             }
 
             Clients.Clear();
+            return Task.CompletedTask;
         }
         
-        public async Task SetupAPI()
+        public async Task SetupApi()
         {
             ApiSettings settings = new()
             {
@@ -208,16 +207,16 @@ namespace GeistDesWaldes.TwitchIntegration
                 Secret = ConfigurationHandler.Shared.Secrets.TwitchBotClientSecret
             };
 
-            API = new TwitchAPI(settings: settings);
+            Api = new TwitchAPI(settings: settings);
 
-            var bot = BotUser;
+            TwitchUser bot = BotUser;
 
-            await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(SetupAPI), $"Bot Twitch User: {(bot != null ? $"{bot.Username} ({bot.TwitchId})" : "NULL")}"));
+            await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(SetupApi), $"Bot Twitch User: {(bot != null ? $"{bot.Username} ({bot.TwitchId})" : "NULL")}"));
         }
         
         public async Task StartListening(Server server)
         {
-            var twitchChannel = server.RuntimeConfig.ChannelOwner;
+            User twitchChannel = server.RuntimeConfig.ChannelOwner;
             if (twitchChannel == null)
             {
                 LogToMain(nameof(StartListening), $"Could not get Twitch Channel Owner for {server.GuildId}!", LogSeverity.Error);
@@ -262,7 +261,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
         public JoinedChannel GetChannelObject(string channelName)
         {
-            foreach (var pair in Clients)
+            foreach (KeyValuePair<string, TwitchIntegrationClient> pair in Clients)
             {
                 if (pair.Value.ChannelName.Equals(channelName, StringComparison.Ordinal))
                     return pair.Value.Client.GetJoinedChannel(channelName);
@@ -279,7 +278,7 @@ namespace GeistDesWaldes.TwitchIntegration
             return null;
         }
 
-        public static async Task ValidatedAPICall(Task action)
+        public static async Task ValidatedApiCall(Task action)
         {
             await AutoUpdateTokens();
 
@@ -289,7 +288,7 @@ namespace GeistDesWaldes.TwitchIntegration
             }
             catch (Exception e)
             {
-                await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ValidatedAPICall), $"Retrying, because of: \n{e.Message}"));
+                await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ValidatedApiCall), $"Retrying, because of: \n{e.Message}"));
 
                 if (!await AuthenticateAndUpdateTokens())
                     throw new Exception("Updating Tokens failed!");
@@ -298,7 +297,7 @@ namespace GeistDesWaldes.TwitchIntegration
             }
         }
 
-        public static async Task<T> ValidatedAPICall<T>(Task<T> action)
+        public static async Task<T> ValidatedApiCall<T>(Task<T> action)
         {
             await AutoUpdateTokens();
 
@@ -308,7 +307,7 @@ namespace GeistDesWaldes.TwitchIntegration
             }
             catch (Exception e)
             {
-                await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ValidatedAPICall), $"Retrying, because of: \n{e.Message}"));
+                await Launcher.Instance.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ValidatedApiCall), $"Retrying, because of: \n{e.Message}"));
 
                 if (!await AuthenticateAndUpdateTokens())
                     throw new Exception("Updating Tokens failed!");
@@ -338,7 +337,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
             _lastAuthTokenCheck = DateTime.Now;
 
-            var validationResult = await TwitchAuthentication.ValidateBotUserAuthentication(scopeBuilder.ToString().TrimEnd('+'), ConfigurationHandler.Shared.Secrets.TwitchBotOAuth, ConfigurationHandler.Shared.Secrets.TwitchBotOAuthRefresh, ConfigurationHandler.Shared.Secrets.TwitchBotClientId, ConfigurationHandler.Shared.Secrets.TwitchBotClientSecret, ConfigurationHandler.Shared.Secrets.TwitchBotOAuthRedirectURL, allowTokenRequest);
+            ValidationResult validationResult = await TwitchAuthentication.ValidateBotUserAuthentication(scopeBuilder.ToString().TrimEnd('+'), ConfigurationHandler.Shared.Secrets.TwitchBotOAuth, ConfigurationHandler.Shared.Secrets.TwitchBotOAuthRefresh, ConfigurationHandler.Shared.Secrets.TwitchBotClientId, ConfigurationHandler.Shared.Secrets.TwitchBotClientSecret, ConfigurationHandler.Shared.Secrets.TwitchBotOAuthRedirectURL, allowTokenRequest);
 
             if (validationResult.Successful && validationResult.TokensUpdated)
             {
@@ -347,7 +346,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
                 await ConfigurationHandler.SaveSharedConfigToFile();
                 
-                await Instance.SetupAPI();
+                await Instance.SetupApi();
             }
 
             return validationResult.Successful;

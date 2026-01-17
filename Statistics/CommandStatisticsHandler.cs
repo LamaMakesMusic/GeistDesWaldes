@@ -22,29 +22,25 @@ namespace GeistDesWaldes.Statistics
         }
 
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCommandStatisticsHandler().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializeCommandStatisticsHandler();
         }
 
         private async Task InitializeCommandStatisticsHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, COMMANDS_FILE_NAME, _commandStatistics);
-
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDS_FILE_NAME, _commandStatistics);
             await LoadCommandStatisticsFromFile();
         }
 
-
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
-        private async Task CheckIntegrity(bool skipFix = false)
+        private async Task CheckIntegrity()
         {
             HashSet<string> ids = new();
 
@@ -61,17 +57,15 @@ namespace GeistDesWaldes.Statistics
             }
             
             if (errorsFound)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Command Statistics OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Command Statistics OK."), (int)ConsoleColor.DarkGreen);
         }
 
-
-        internal override void OnServerShutdown(object source, EventArgs e)
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
-
-            SaveCommandStatisticsToFile().SafeAsync<CommandStatisticsHandler>(_Server.LogHandler);
+            await base.OnServerShutdown();
+            await SaveCommandStatisticsToFile();
         }
 
 
@@ -79,16 +73,16 @@ namespace GeistDesWaldes.Statistics
         {
             _commandStatistics.Sort((s1, s2) => s1.Id.CompareTo(s2.Id, StringComparison.Ordinal));
 
-            return GenericXmlSerializer.SaveAsync<List<CommandStatistic>>(_Server.LogHandler, _commandStatistics, COMMANDS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<CommandStatistic>>(Server.LogHandler, _commandStatistics, COMMANDS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
 
         public async Task LoadCommandStatisticsFromFile()
         {
-            List<CommandStatistic> loadedStatistics = await GenericXmlSerializer.LoadAsync<List<CommandStatistic>>(_Server.LogHandler, COMMANDS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            List<CommandStatistic> loadedStatistics = await GenericXmlSerializer.LoadAsync<List<CommandStatistic>>(Server.LogHandler, COMMANDS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            if (loadedStatistics == default)
+            if (loadedStatistics == null)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCommandStatisticsFromFile), $"Loaded {nameof(loadedStatistics)} == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCommandStatisticsFromFile), $"Loaded {nameof(loadedStatistics)} == DEFAULT"));
                 return;
             }
             
@@ -123,7 +117,7 @@ namespace GeistDesWaldes.Statistics
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(RecordCommand), string.Empty, e));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(RecordCommand), string.Empty, e));
             }
         }
 

@@ -9,58 +9,61 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
 
 namespace GeistDesWaldes.Events
 {
     public class ScheduleHandler : BaseHandler
     {
-        public List<ScheduledEvent> EventSchedule;
+        public List<ScheduledEvent> EventSchedule = new();
         private const string SCHEDULE_FILE_NAME = "EventSchedule";
 
-        private Task _kickOffDailysTask = null;
+        private Task _kickOffDailysTask;
         private CancellationTokenSource _cancelKickOffTaskSource;
 
 
         public ScheduleHandler(Server server) : base(server)
         {
-            EventSchedule = new List<ScheduledEvent>();
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeScheduleHandler().SafeAsync<ScheduleHandler>(_Server.LogHandler, StartDailyKickOff);
+            await base.OnServerStartUp();
+            await InitializeScheduleHandler();
+            StartDailyKickOff();
         }
-        internal override void OnServerShutdown(object source, EventArgs e)
+        
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
+            await base.OnServerShutdown();
 
             _cancelKickOffTaskSource?.Cancel();
 
-            for (int i = 0; i < EventSchedule.Count; i++)
-                EventSchedule[i].CancelKickOff();
+            foreach (ScheduledEvent evt in EventSchedule)
+            {
+                evt?.CancelKickOff();
+            }
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<ScheduleHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializeScheduleHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, SCHEDULE_FILE_NAME, EventSchedule);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, SCHEDULE_FILE_NAME, EventSchedule);
             await LoadScheduleFromFile();
         }
         private async Task CheckIntegrity()
         {
-            var builder = new StringBuilder("Events ERROR:\n");
+            StringBuilder builder = new StringBuilder("Events ERROR:\n");
             int startLength = builder.Length;
 
             for (int i = 0; i < EventSchedule.Count; i++)
             {
-                var subBuilder = new StringBuilder($"...[{i}]");
+                StringBuilder subBuilder = new StringBuilder($"...[{i}]");
                 int subStartLength = subBuilder.Length;
 
                 ScheduledEvent ev = EventSchedule[i];
@@ -73,12 +76,12 @@ namespace GeistDesWaldes.Events
                         {
                             if (ev.CommandToExecute.CommandsToExecute != null && ev.CommandToExecute.CommandsToExecute.Length > 0)
                             {
-                                var subSubBuilder = new StringBuilder($" | {ev.CommandToExecute.Name} | Commands ERROR:\n");
+                                StringBuilder subSubBuilder = new StringBuilder($" | {ev.CommandToExecute.Name} | Commands ERROR:\n");
                                 int subSubStartLength = subSubBuilder.Length;
 
-                                foreach (var cmd in ev.CommandToExecute.CommandsToExecute)
+                                foreach (CommandMetaInfo cmd in ev.CommandToExecute.CommandsToExecute)
                                 {
-                                    var testResult = await cmd.TestCommandExecution(_Server.CommandService, _Server.Services, _Server.CultureInfo);
+                                    CustomRuntimeResult testResult = await cmd.TestCommandExecution(Server.CommandService, Server.Services, Server.CultureInfo);
 
                                     if (!testResult.IsSuccess)
                                         subSubBuilder.AppendLine($"......{testResult.Reason}");
@@ -105,9 +108,9 @@ namespace GeistDesWaldes.Events
 
 
             if (builder.Length > startLength)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Events OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Events OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
@@ -120,7 +123,7 @@ namespace GeistDesWaldes.Events
         {
             _cancelKickOffTaskSource = new CancellationTokenSource();
             
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(KickOffDailys), "Started."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(KickOffDailys), "Started."));
 
             try
             {
@@ -132,7 +135,7 @@ namespace GeistDesWaldes.Events
                     DateTime midnight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 1).AddDays(1);
                     TimeSpan difference = midnight.Subtract(DateTime.Now);
 
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(KickOffDailys), $"Daily Event KickOff called. Next KickOff in: {difference}"));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(KickOffDailys), $"Daily Event KickOff called. Next KickOff in: {difference}"));
 
                     await Task.Delay(difference, _cancelKickOffTaskSource.Token);
                 }
@@ -146,7 +149,7 @@ namespace GeistDesWaldes.Events
                 _cancelKickOffTaskSource = null;
                 _kickOffDailysTask = null;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(KickOffDailys), "Stopped."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(KickOffDailys), "Stopped."));
             }
         }
 
@@ -162,7 +165,7 @@ namespace GeistDesWaldes.Events
 
                 EventSchedule.Add(scheduledEvent);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(AddEvent), $"Created: {scheduledEvent.CommandToExecute?.Name} | {scheduledEvent.ExecutionTime}"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(AddEvent), $"Created: {scheduledEvent.CommandToExecute?.Name} | {scheduledEvent.ExecutionTime}"));
 
                 await SaveScheduleToFile();
 
@@ -177,7 +180,7 @@ namespace GeistDesWaldes.Events
         {
             try
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(RemoveEvent), $"Removed: {evt.CommandToExecute?.Name} | {evt.ExecutionTime}"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(RemoveEvent), $"Removed: {evt.CommandToExecute?.Name} | {evt.ExecutionTime}"));
 
                 evt.CancelKickOff();
                 EventSchedule.Remove(evt);
@@ -241,16 +244,14 @@ namespace GeistDesWaldes.Events
 
         public Task SaveScheduleToFile()
         {
-            return GenericXmlSerializer.SaveAsync<List<ScheduledEvent>>(_Server.LogHandler, EventSchedule, SCHEDULE_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<ScheduledEvent>>(Server.LogHandler, EventSchedule, SCHEDULE_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadScheduleFromFile()
         {
-            List<ScheduledEvent> loadedSchedule = null;
+            List<ScheduledEvent> loadedSchedule = await GenericXmlSerializer.LoadAsync<List<ScheduledEvent>>(Server.LogHandler, SCHEDULE_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            loadedSchedule = await GenericXmlSerializer.LoadAsync<List<ScheduledEvent>>(_Server.LogHandler, SCHEDULE_FILE_NAME, _Server.ServerFilesDirectoryPath);
-
-            if (loadedSchedule == default(List<ScheduledEvent>))
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadScheduleFromFile), "Loaded Schedule == DEFAULT"));
+            if (loadedSchedule == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadScheduleFromFile), "Loaded Schedule == DEFAULT"));
             else
                 EventSchedule = loadedSchedule;
 
@@ -258,7 +259,7 @@ namespace GeistDesWaldes.Events
             //Ensure Hash for externally added Events
             for (int i = 0; i < EventSchedule.Count; i++)
             {
-                EventSchedule[i].CommandToExecute?.InitAfterLoadFromFile(_Server);
+                EventSchedule[i].CommandToExecute?.InitAfterLoadFromFile(Server);
             }
         }
     }

@@ -5,6 +5,8 @@ using GeistDesWaldes.Communication;
 using GeistDesWaldes.Dictionaries;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.Polls;
+using Poll = GeistDesWaldes.Polls.Poll;
 
 namespace GeistDesWaldes.Modules
 {
@@ -13,9 +15,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "PollPermission")]
     [Group("poll")]
     [Alias("polls")]
-    public class PollModule : ModuleBase<CommandContext>, IServerModule
+    public class PollModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Priority(-1)]
         [Command]
@@ -30,7 +32,7 @@ namespace GeistDesWaldes.Modules
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Polls)
                             .AddContent(new ChannelMessageContent()
                                 .SetTitle(null, EmojiDictionary.INFO)
-                                .SetDescription(_Server.PollHandler.GetPollList())
+                                .SetDescription(Server.GetModule<PollHandler>().GetPollList())
                             );
 
                     await msg.SendAsync();
@@ -39,7 +41,7 @@ namespace GeistDesWaldes.Modules
                 }
                 else
                 {
-                    var result = await _Server.PollHandler.GetPoll(name, channel != null ? channel.Id : Context.Channel.Id);
+                    CustomRuntimeResult<Poll> result = Server.GetModule<PollHandler>().GetPoll(name, channel?.Id ?? Context.Channel.Id);
 
                     if (result.IsSuccess)
                     {
@@ -65,7 +67,7 @@ namespace GeistDesWaldes.Modules
 
         [Command("vote")]
         [Summary("Dummy Method for Vote Permission Check")]
-        public async Task<RuntimeResult> Vote()
+        public RuntimeResult Vote()
         {
             return CustomRuntimeResult.FromSuccess();
         }
@@ -73,9 +75,9 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "PollAdminPermission")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "PollAdminPermission")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "PollAdminPermission")]
-        public class PollAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class PollAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("start")]
             [Summary("Starts a new poll.")]
@@ -83,11 +85,11 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var result = await _Server.PollHandler.StartPoll(name, description, channel ?? Context.Channel, voteOptions);
+                    CustomRuntimeResult<Poll> result = await Server.GetModule<PollHandler>().StartPoll(name, description, channel ?? Context.Channel, voteOptions);
 
                     if (result.IsSuccess)
                     {
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_VOTE_USING_PREFIX_X, "{x}", _Server.Config.GeneralSettings.PollVotePrefix.ToString());
+                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_VOTE_USING_PREFIX_X, "{x}", Server.Config.GeneralSettings.PollVotePrefix.ToString());
                         body = $"{result.ResultValue.BodyToString()}\n{body}";
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -112,7 +114,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Stops a running poll.")]
             public async Task<RuntimeResult> StopPoll(string name, IChannel channel = null)
             {
-                var result = await _Server.PollHandler.StopPoll(name, channel != null ? channel.Id : Context.Channel.Id);
+                CustomRuntimeResult<Poll> result = await Server.GetModule<PollHandler>().StopPoll(name, channel?.Id ?? Context.Channel.Id);
 
                 if (result.IsSuccess)
                 {

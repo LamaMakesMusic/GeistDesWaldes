@@ -10,26 +10,27 @@ namespace GeistDesWaldes.Currency
 {
     public class CurrencyHandler : BaseHandler
     {
-        public CurrencyCustomization CustomizationData;
+        public CurrencyCustomization CustomizationData = new();
 
         private const string CUSTOMIZATIONDATA_FILE_NAME = "CurrencyCustomization";
 
+        private readonly ForestUserHandler _userHandler;
         
-        public CurrencyHandler(Server server) : base(server)
+        
+        public CurrencyHandler(Server server, ForestUserHandler userHandler) : base(server)
         {
-            CustomizationData = new CurrencyCustomization();
+            _userHandler = userHandler;
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCurrencyHandler().SafeAsync<CurrencyHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializeCurrencyHandler();
         }
 
         private async Task InitializeCurrencyHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, CUSTOMIZATIONDATA_FILE_NAME, CustomizationData);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CUSTOMIZATIONDATA_FILE_NAME, CustomizationData);
             await LoadCurrencyCustomizationFromFile();
         }
 
@@ -37,7 +38,7 @@ namespace GeistDesWaldes.Currency
         {
             try
             {
-                var getUserResult = await _Server.ForestUserHandler.GetUser(user);
+                CustomRuntimeResult<ForestUser> getUserResult = await _userHandler.GetUser(user);
 
                 if (getUserResult.IsSuccess)
                     return await AddCurrencyToUser(getUserResult.ResultValue, amount);
@@ -55,7 +56,7 @@ namespace GeistDesWaldes.Currency
             {
                 forestUser.AddToWallet(amount);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddCurrencyToUser), $"Added {amount} to wallet of {forestUser.Name}!"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddCurrencyToUser), $"Added {amount} to wallet of {forestUser.Name}!"));
 
                 return CustomRuntimeResult.FromSuccess();
             }
@@ -97,7 +98,7 @@ namespace GeistDesWaldes.Currency
 
         public async Task<CustomRuntimeResult<int>> GetPointsAsync(string twitchId)
         {
-            var userResult = await _Server.ForestUserHandler.GetUser(twitchId: twitchId);
+            CustomRuntimeResult<ForestUser> userResult = await _userHandler.GetUser(twitchId: twitchId);
 
             if (userResult.IsSuccess)
                 return CustomRuntimeResult<int>.FromSuccess(value: userResult.ResultValue.Wallet);
@@ -106,7 +107,7 @@ namespace GeistDesWaldes.Currency
         }
         public async Task<CustomRuntimeResult<int>> GetPointsAsync(IUser user)
         {
-            var userResult = await _Server.ForestUserHandler.GetUser(user);
+            CustomRuntimeResult<ForestUser> userResult = await _userHandler.GetUser(user);
 
             if (userResult.IsSuccess)
                 return CustomRuntimeResult<int>.FromSuccess(value: userResult.ResultValue.Wallet);
@@ -117,16 +118,16 @@ namespace GeistDesWaldes.Currency
 
         public async Task SaveCurrencyCustomizationToFile()
         {
-            await GenericXmlSerializer.SaveAsync<CurrencyCustomization>(_Server.LogHandler, CustomizationData, CUSTOMIZATIONDATA_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            await GenericXmlSerializer.SaveAsync<CurrencyCustomization>(Server.LogHandler, CustomizationData, CUSTOMIZATIONDATA_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadCurrencyCustomizationFromFile()
         {
-            CurrencyCustomization loadedData = null;
+            CurrencyCustomization loadedData;
 
-            loadedData = await GenericXmlSerializer.LoadAsync<CurrencyCustomization>(_Server.LogHandler, CUSTOMIZATIONDATA_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            loadedData = await GenericXmlSerializer.LoadAsync<CurrencyCustomization>(Server.LogHandler, CUSTOMIZATIONDATA_FILE_NAME, Server.ServerFilesDirectoryPath);
 
             if (loadedData == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCurrencyCustomizationFromFile), $"Loaded {nameof(CustomizationData)} == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCurrencyCustomizationFromFile), $"Loaded {nameof(CustomizationData)} == DEFAULT"));
             else
                 CustomizationData = loadedData;
         }

@@ -17,9 +17,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CurrencyPermission")]
     [Group("point")]
     [Alias("points")]
-    public class CurrencyModule : ModuleBase<CommandContext>, IServerModule
+    public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Priority(-1)]
         [Command]
@@ -28,11 +28,11 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                var getResult = await _Server.CurrencyHandler.GetPointsAsync(Context.User);
+                var getResult = await Server.GetModule<CurrencyHandler>().GetPointsAsync(Context.User);
 
                 if (getResult.IsSuccess)
                 {
-                    string body = _Server.CurrencyHandler.CustomizationData.PointsToStringMessage;
+                    string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage;
                     body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", Context.User.Username);
                     body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", getResult.ResultValue.ToString());
 
@@ -69,20 +69,20 @@ namespace GeistDesWaldes.Modules
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.PARAMETER_MUST_BE_GREATER_X, "{x}", "0"));
 
 
-                var getUserResult = await _Server.ForestUserHandler.GetUser(Context.User);
+                var getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(Context.User);
                 if (getUserResult.IsSuccess)
                 {
                     ForestUser sender = getUserResult.ResultValue;
 
-                    getUserResult = await _Server.ForestUserHandler.GetUser(targetUser);
+                    getUserResult = await Server.GetModule<ForestUserHandler>().GetUser(targetUser);
                     if (getUserResult.IsSuccess)
                     {
                         ForestUser receiver = getUserResult.ResultValue;
 
-                        var transferResult = await _Server.CurrencyHandler.TransferCurrencyBetweenUsers(sender, receiver, amount);
+                        var transferResult = await Server.GetModule<CurrencyHandler>().TransferCurrencyBetweenUsers(sender, receiver, amount);
                         if (transferResult.IsSuccess)
                         {
-                            string body = _Server.CurrencyHandler.CustomizationData.TransferedPointsMessage;
+                            string body = Server.GetModule<CurrencyHandler>().CustomizationData.TransferedPointsMessage;
                             body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", Context.User.Username);
                             body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", amount.ToString());
                             body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{z}", targetUser.Username);
@@ -178,9 +178,9 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "CurrencyAdminPermission")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CurrencyAdminPermission")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CurrencyAdminPermission")]
-        public class TwitchPointsAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class TwitchPointsAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("add")]
             [Summary("Adds currency to a User.")]
@@ -193,7 +193,7 @@ namespace GeistDesWaldes.Modules
 
                     amount = Math.Abs(amount);
 
-                    var result = await _Server.CurrencyHandler.AddCurrencyToUser(targetUser, amount);
+                    var result = await Server.GetModule<CurrencyHandler>().AddCurrencyToUser(targetUser, amount);
                     if (result.IsSuccess)
                     {
                         string body = ReplyDictionary.X_RECEIVED_Y_POINTS;
@@ -230,7 +230,7 @@ namespace GeistDesWaldes.Modules
 
                     amount = Math.Abs(amount);
 
-                    var result = await _Server.CurrencyHandler.AddCurrencyToUser(targetUser, -1 * amount);
+                    var result = await Server.GetModule<CurrencyHandler>().AddCurrencyToUser(targetUser, -1 * amount);
 
                     if (result.IsSuccess)
                     {
@@ -263,11 +263,11 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var getResult = await _Server.CurrencyHandler.GetPointsAsync(user);
+                    var getResult = await Server.GetModule<CurrencyHandler>().GetPointsAsync(user);
 
                     if (getResult.IsSuccess)
                     {
-                        string body = _Server.CurrencyHandler.CustomizationData.PointsToStringMessage;
+                        string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage;
                         body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", user.Username);
                         body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", getResult.ResultValue.ToString());
 
@@ -299,13 +299,13 @@ namespace GeistDesWaldes.Modules
                     if (string.IsNullOrWhiteSpace(toStringMessage))
                         return await ResetToStringMessage(type);
 
-                    _Server.CurrencyHandler.CustomizationData.SetToStringMessage(toStringMessage, type);
+                    Server.GetModule<CurrencyHandler>().CustomizationData.SetToStringMessage(toStringMessage, type);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
                         .AddContent(new ChannelMessageContent()
                             .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
-                            .SetDescription(_Server.CurrencyHandler.CustomizationData.GetToStringMessage(type))
+                            .SetDescription(Server.GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(type))
                         );
 
                     await msg.SendAsync();
@@ -328,7 +328,7 @@ namespace GeistDesWaldes.Modules
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
                         .AddContent(new ChannelMessageContent()
                             .SetTitle($"{ReplyDictionary.CATEGORY}: '{ReplyDictionary.GetOutputTextForEnum(type)}'", EmojiDictionary.INFO)
-                            .SetDescription($"'{_Server.CurrencyHandler.CustomizationData.GetToStringMessage(type)}'")
+                            .SetDescription($"'{Server.GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(type)}'")
                         );
 
                     await msg.SendAsync();
@@ -347,13 +347,13 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    _Server.CurrencyHandler.CustomizationData.ResetToStringMessage(type);
+                    Server.GetModule<CurrencyHandler>().CustomizationData.ResetToStringMessage(type);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
                         .AddContent(new ChannelMessageContent()
                             .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
-                            .SetDescription(_Server.CurrencyHandler.CustomizationData.GetToStringMessage(type))
+                            .SetDescription(Server.GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(type))
                         );
 
                     await msg.SendAsync();

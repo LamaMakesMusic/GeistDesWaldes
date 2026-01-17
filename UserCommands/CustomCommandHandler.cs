@@ -8,38 +8,42 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
 
 namespace GeistDesWaldes.UserCommands
 {
     public class CustomCommandHandler : BaseHandler
     {
-        public CustomCommandDictionary CustomCommands;
+        public CustomCommandDictionary CustomCommands = new();
 
         private const string COMMANDINFO_FILE_NAME = "CustomCommands";
         private ModuleInfo _moduleInfo;
 
+        private readonly CustomCommandHandler _customCommandHandler;
+        private readonly CommandInfoHandler _commandInfoHandler;
 
-        public CustomCommandHandler(Server server) : base(server)
+
+        public CustomCommandHandler(Server server, CustomCommandHandler customCommandHandler, CommandInfoHandler commandInfoHandler) : base(server)
         {
-            CustomCommands = new CustomCommandDictionary();
+            _customCommandHandler = customCommandHandler;
+            _commandInfoHandler = commandInfoHandler;
+        }
+
+        public override async Task OnServerStartUp()
+        {
+            await base.OnServerStartUp();
+            await InitializeCustomCommandHandler();
         }
         
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnCheckIntegrity()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCustomCommandHandler().SafeAsync<CustomCommandHandler>(_Server.LogHandler);
-        }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
-        {
-            base.OnServerStart(source, e);
-
-            CheckIntegrity().SafeAsync<CustomCommandHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializeCustomCommandHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, COMMANDINFO_FILE_NAME, CustomCommands);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDINFO_FILE_NAME, CustomCommands);
             await LoadCustomCommandsFromFile();
 
             await UpdateCommandService();
@@ -61,7 +65,7 @@ namespace GeistDesWaldes.UserCommands
                     if (string.IsNullOrWhiteSpace(command.Name))
                         builder.Append(" | missing name");
 
-                    var testResult = await command.TestCommandExecution(_Server.CommandService, _Server.Services);
+                    var testResult = await command.TestCommandExecution(Server.CommandService, Server.Services);
 
                     if (!testResult.IsSuccess)
                         builder.Append(" | Commands ERROR:\n").AppendLine($"......{testResult.Reason}");
@@ -79,10 +83,10 @@ namespace GeistDesWaldes.UserCommands
                 for (int i = 0; i < problematicEntries.Count; i++)
                     builder.AppendLine(problematicEntries[i]);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Custom Commands OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Custom Commands OK."), (int)ConsoleColor.DarkGreen);
         }
 
         public async Task<CustomRuntimeResult> AddCommandAsync(CustomCommand command)
@@ -101,9 +105,9 @@ namespace GeistDesWaldes.UserCommands
         public async Task<CustomRuntimeResult> RemoveCommandAsync(string commandName)
         {
             var result = await GetCommandAsync(commandName);
-            if (result.IsSuccess && result.ResultValue is CustomCommand cmd)
+            if (result.IsSuccess && result.ResultValue is { } cmd)
             {
-                await cmd.SetCategory(_Server, null);
+                await cmd.SetCategory(Server, null);
 
                 CustomCommands.Commands.Remove(cmd);
 
@@ -122,10 +126,10 @@ namespace GeistDesWaldes.UserCommands
             {
                 int hash = commandName.ToLower().GetHashCode();
 
-                for (int i = 0; i < _Server.CustomCommandHandler.CustomCommands.Commands.Count; i++)
+                for (int i = 0; i < _customCommandHandler.CustomCommands.Commands.Count; i++)
                 {
-                    if (_Server.CustomCommandHandler.CustomCommands.Commands[i].NameHash == hash)
-                        return CustomRuntimeResult<CustomCommand>.FromSuccess(value: _Server.CustomCommandHandler.CustomCommands.Commands[i]);
+                    if (_customCommandHandler.CustomCommands.Commands[i].NameHash == hash)
+                        return CustomRuntimeResult<CustomCommand>.FromSuccess(value: _customCommandHandler.CustomCommands.Commands[i]);
                 }
 
                 return CustomRuntimeResult<CustomCommand>.FromError($"{ReplyDictionary.COULD_NOT_FIND_COMMAND_NAMED} '{commandName}'.");
@@ -135,23 +139,23 @@ namespace GeistDesWaldes.UserCommands
 
         public Task SaveCustomCommandsToFile()
         {
-            return GenericXmlSerializer.SaveAsync<CustomCommandDictionary>(_Server.LogHandler, CustomCommands, COMMANDINFO_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<CustomCommandDictionary>(Server.LogHandler, CustomCommands, COMMANDINFO_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadCustomCommandsFromFile()
         {
-            CustomCommandDictionary loadedDictionary = null;
+            CustomCommandDictionary loadedDictionary;
 
-            loadedDictionary = await GenericXmlSerializer.LoadAsync<CustomCommandDictionary>(_Server.LogHandler, COMMANDINFO_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            loadedDictionary = await GenericXmlSerializer.LoadAsync<CustomCommandDictionary>(Server.LogHandler, COMMANDINFO_FILE_NAME, Server.ServerFilesDirectoryPath);
 
             if (loadedDictionary == default(CustomCommandDictionary))
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCustomCommandsFromFile), $"Loaded {nameof(CustomCommandDictionary)} == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCustomCommandsFromFile), $"Loaded {nameof(CustomCommandDictionary)} == DEFAULT"));
             else
                 CustomCommands = loadedDictionary;
 
             //Ensure Name Hash
             for (int i = 0; i < CustomCommands.Commands.Count; i++)
             {
-                CustomCommands.Commands[i]?.InitAfterLoadFromFile(_Server);
+                CustomCommands.Commands[i]?.InitAfterLoadFromFile(Server);
             }
 
             //Re-Connect Commands with Category
@@ -174,8 +178,8 @@ namespace GeistDesWaldes.UserCommands
             }
 
             // Sorting
-            CustomCommands.Commands.Sort((c1, c2) => (c1?.Name ?? "").CompareTo(c2?.Name ?? ""));
-            CustomCommands.Categories.Sort((c1, c2) => (c1?.Name ?? "").CompareTo(c2?.Name ?? ""));
+            CustomCommands.Commands.Sort((c1, c2) => string.Compare((c1?.Name ?? ""), c2?.Name ?? "", StringComparison.Ordinal));
+            CustomCommands.Categories?.Sort((c1, c2) => string.Compare((c1?.Name ?? ""), c2?.Name ?? "", StringComparison.Ordinal));
         }
 
 
@@ -187,57 +191,53 @@ namespace GeistDesWaldes.UserCommands
                 CustomCommands.Commands.Sort((c1, c2) => c1.CompareTo(c2));
 
                 if (_moduleInfo != null)
-                    await _Server.CommandService.RemoveModuleAsync(_moduleInfo);
+                    await Server.CommandService.RemoveModuleAsync(_moduleInfo);
 
-                _moduleInfo = await _Server.CommandService.CreateModuleAsync("",
-                    new Action<ModuleBuilder>(mb =>
+                _moduleInfo = await Server.CommandService.CreateModuleAsync("",
+                    mb =>
+                    {
+                        for (int i = 0; i < CustomCommands.Commands.Count; i++)
                         {
-                            for (int i = 0; i < CustomCommands.Commands.Count; i++)
+                            CustomCommand command = CustomCommands.Commands[i];
+
+                            mb.AddCommand(command.Name, command.ExecuteCallback, BuildCommand);
+                            continue;
+
+                            void BuildCommand(CommandBuilder cb)
                             {
-                                CustomCommand command = CustomCommands.Commands[i];
-                                Action<CommandBuilder> commandBuilderAction = new Action<CommandBuilder>(cb =>
-                                {
-                                    cb.WithSummary($"Category: {(command.Category == null ? "-" : command.Category.Name)}");
+                                cb.WithSummary($"Category: {(command.Category == null ? "-" : command.Category.Name)}");
 
-                                    bool hasCategory = command.Category != null;
+                                bool hasCategory = command.Category != null;
 
-                                    float cooldown = command.CooldownInSeconds;
-                                    if (hasCategory && command.Category.CategoryCooldownInSeconds > cooldown)
-                                        cooldown = command.Category.CategoryCooldownInSeconds;
+                                float cooldown = command.CooldownInSeconds;
+                                if (hasCategory && command.Category.CategoryCooldownInSeconds > cooldown) cooldown = command.Category.CategoryCooldownInSeconds;
 
-                                    int priceTag = command.PriceTag;
-                                    if (hasCategory && command.Category.PriceTag > priceTag)
-                                        priceTag = command.Category.PriceTag;
+                                int priceTag = command.PriceTag;
+                                if (hasCategory && command.Category.PriceTag > priceTag) priceTag = command.Category.PriceTag;
 
-                                    if (cooldown > 0f)
-                                        cb.AddPrecondition(new CommandCooldown(cooldown));
+                                if (cooldown > 0f) cb.AddPrecondition(new CommandCooldown(cooldown));
 
-                                    if (priceTag > 0)
-                                        cb.AddPrecondition(new CommandFee(priceTag));
+                                if (priceTag > 0) cb.AddPrecondition(new CommandFee(priceTag));
 
-                                    if (hasCategory)
-                                        cb.AddPrecondition(new CategoryLock(command.Category));
+                                if (hasCategory) cb.AddPrecondition(new CategoryLock(command.Category));
 
-                                    command.RealCooldownInSeconds = cooldown;
-                                    command.RealPriceTag = priceTag;
-                                });
-
-                                mb.AddCommand(command.Name, command.ExecuteCallback, commandBuilderAction);
+                                command.RealCooldownInSeconds = cooldown;
+                                command.RealPriceTag = priceTag;
                             }
                         }
-                    )
+                    }
                 );
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(UpdateCommandService), "OK!"), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(UpdateCommandService), "OK!"), (int)ConsoleColor.DarkGreen);
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCommandService), $"Command Service Update: ERROR \n{e}"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCommandService), $"Command Service Update: ERROR \n{e}"));
             }
             finally
             {
-                await _Server.CommandInfoHandler.CollectCustomCommands();
-                await _Server.CommandInfoHandler.CreateHelpListStringsAsync();
+                await _commandInfoHandler.CollectCustomCommands();
+                await _commandInfoHandler.CreateHelpListStringsAsync();
             }
         }
 
@@ -278,13 +278,13 @@ namespace GeistDesWaldes.UserCommands
         }
         public async Task<CustomRuntimeResult> DeleteCategory(string categoryName)
         {
-            var result = await GetCategory(categoryName);
+            CustomRuntimeResult<CustomCommandCategory> result = await GetCategory(categoryName);
             if (result.IsSuccess)
             {
                 for (int i = result.ResultValue.Commands.Count - 1; i >= 0; i--)
                 {
-                    if ((await GetCommandAsync(result.ResultValue.Commands[i])).ResultValue is CustomCommand cmd)
-                        await cmd.SetCategory(_Server, null);
+                    if ((await GetCommandAsync(result.ResultValue.Commands[i])).ResultValue is { } cmd)
+                        await cmd.SetCategory(Server, null);
                 }
 
                 CustomCommands.Categories.Remove(result.ResultValue);

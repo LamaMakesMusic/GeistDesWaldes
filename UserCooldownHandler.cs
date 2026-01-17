@@ -23,21 +23,21 @@ namespace GeistDesWaldes
 
         public async Task AddToCooldown(IUser user)
         {
-            long cooldownUpdate = DateTime.UtcNow.AddSeconds(_Server.Config.UserSettings.UserCooldownInSeconds).Ticks;
+            long cooldownUpdate = DateTime.UtcNow.AddSeconds(Server.Config.UserSettings.UserCooldownInSeconds).Ticks;
 
             if (user is TwitchUser tUser)
             {
                 if (_twitchCooldown.TryGetValue(tUser.TwitchId, out long existing))
                     existing = cooldownUpdate;
                 else if (_twitchCooldown.TryAdd(tUser.TwitchId, cooldownUpdate) == false)
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), "Could not add user to cooldown!"));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), "Could not add user to cooldown!"));
             }
             else
             {
                 if (_discordCooldown.TryGetValue(user.Id, out long existing))
                     existing = cooldownUpdate;
                 else if (_discordCooldown.TryAdd(user.Id, cooldownUpdate) == false)
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), "Could not add user to cooldown!"));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), "Could not add user to cooldown!"));
             }
         }
 
@@ -86,7 +86,7 @@ namespace GeistDesWaldes
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCooldown), "", e));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCooldown), "", e));
             }
 
         }

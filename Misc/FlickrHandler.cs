@@ -1,7 +1,6 @@
 ﻿using FlickrNet;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Configuration;
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -13,9 +12,9 @@ namespace GeistDesWaldes.Misc
         public const string PIC_SOURCE_MAIN = @"https://ww.flickr.com";
         public const string PIC_SOURCE_ICON = @"https://combo.staticflickr.com/pw/images/favicons/favicon-32.png";
 
-        private static readonly SafetyLevel SearchSafetyLevel = SafetyLevel.Safe | SafetyLevel.Moderate;
-        private static readonly LicenseType[] PhotoLicenses = new LicenseType[]
-        {
+        private static readonly SafetyLevel _searchSafetyLevel = SafetyLevel.Safe | SafetyLevel.Moderate;
+        private static readonly LicenseType[] _photoLicenses =
+        [
             LicenseType.NoKnownCopyrightRestrictions,
             LicenseType.PublicDomainMark,
             LicenseType.PublicDomainDedicationCC0,
@@ -23,7 +22,7 @@ namespace GeistDesWaldes.Misc
             LicenseType.AttributionNoDerivativesCC, 
             LicenseType.AttributionNoncommercialCC, 
             LicenseType.AttributionNoncommercialNoDerivativesCC
-        };
+        ];
         
         private readonly ConcurrentDictionary<string, List<Photo>> _imageCache = new ();
         private Flickr _flickr;
@@ -34,17 +33,15 @@ namespace GeistDesWaldes.Misc
         }
 
         
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            _flickr = new(ConfigurationHandler.Shared.Secrets.FlickrApiKey);
+            await base.OnServerStartUp();
+            _flickr = new Flickr(ConfigurationHandler.Shared.Secrets.FlickrApiKey);
         }
 
-        internal override void OnServerShutdown(object source, EventArgs e)
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
-
+            await base.OnServerShutdown();
             _flickr = null;
         }
 
@@ -54,17 +51,18 @@ namespace GeistDesWaldes.Misc
             keyword = keyword.ToLower();
 
             if (!_imageCache.ContainsKey(keyword))
-                _imageCache.TryAdd(keyword, new());
+                _imageCache.TryAdd(keyword, []);
 
             _imageCache.TryGetValue(keyword, out List<Photo> images);
 
             if (images == null || images.Count == 0)
             {
-                var updateResult = await UpdateCacheEntry(keyword);
+                CustomRuntimeResult<PhotoCollection> updateResult = await UpdateCacheEntry(keyword);
 
                 if (!updateResult.IsSuccess)
                     return CustomRuntimeResult<Photo>.FromError(updateResult.Reason);
 
+                images ??= [];
                 images.AddRange(updateResult.ResultValue);
             }
 
@@ -82,23 +80,21 @@ namespace GeistDesWaldes.Misc
                 Tags = keyword,
                 Page = Launcher.Random.Next(0, 10),
                 PerPage = 10,
-                SafeSearch = SearchSafetyLevel,
+                SafeSearch = _searchSafetyLevel,
                 MediaType = MediaType.Photos,
                 Extras = PhotoSearchExtras.SmallUrl | PhotoSearchExtras.OwnerName,
                 PrivacyFilter = PrivacyFilter.PublicPhotos,
                 ContentType = ContentTypeSearch.PhotosAndOthers
             };
 
-            foreach (LicenseType lType in PhotoLicenses)
+            foreach (LicenseType lType in _photoLicenses)
             {
                 searchOptions.Licenses.Add(lType);
             }
 
             int timeoutInSeconds = ConfigurationHandler.Shared.WebClientTimeoutInSeconds;
 
-            Task<PhotoCollection> searchResult = null;
-
-            searchResult = _flickr.PhotosSearchAsync(searchOptions);
+            Task<PhotoCollection> searchResult = _flickr.PhotosSearchAsync(searchOptions);
 
             do
             {

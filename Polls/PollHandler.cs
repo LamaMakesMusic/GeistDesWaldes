@@ -13,7 +13,7 @@ namespace GeistDesWaldes.Polls
 {
     public class PollHandler : BaseHandler
     {
-        private List<ChannelPoll> _currentPolls = new();
+        private List<ChannelPoll> _currentPolls = [];
         private readonly object _pollsLock = new object();
 
         private string _pollList = "-";
@@ -27,41 +27,40 @@ namespace GeistDesWaldes.Polls
 
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializePollHandler().SafeAsync<PollHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializePollHandler();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<PollHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializePollHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, POLLS_FILE_NAME, _currentPolls);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, POLLS_FILE_NAME, _currentPolls);
             await LoadPollsFromFile();
         }
         private async Task CheckIntegrity()
         {
-            var builder = new StringBuilder("Polls ERROR:\n");
+            StringBuilder builder = new("Polls ERROR:\n");
             int startLength = builder.Length;
 
-            foreach (var channelPoll in _currentPolls)
+            foreach (ChannelPoll channelPoll in _currentPolls)
             {
-                var subBuilder = new StringBuilder($"...[{channelPoll.ChannelId}]");
+                StringBuilder subBuilder = new($"...[{channelPoll.ChannelId}]");
                 int subStartLength = subBuilder.Length;
 
                 if (channelPoll.Polls?.Count > 0)
                 {
-                    if (channelPoll.Polls?.Count > _Server.Config.GeneralSettings.MaxPollsPerChannel)
+                    if (channelPoll.Polls?.Count > Server.Config.GeneralSettings.MaxPollsPerChannel)
                         subBuilder.Append(" | Poll Limit exceeded!");
                     else
                     {
-                        for (int i = 0; i < channelPoll.Polls.Count; i++)
+                        for (int i = 0; i < channelPoll.Polls?.Count; i++)
                         {
                             if (channelPoll.Polls[i].PollOptions?.Count > 0)
                             {
@@ -86,9 +85,9 @@ namespace GeistDesWaldes.Polls
 
 
             if (builder.Length > startLength)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Polls OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Polls OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
@@ -98,16 +97,16 @@ namespace GeistDesWaldes.Polls
             {
                 int pollCount = await GetChannelPollCount(channel.Id);
 
-                if (pollCount >= _Server.Config.GeneralSettings.MaxPollsPerChannel)
-                    return CustomRuntimeResult<Poll>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_MAX_POLLS_X_PER_CHANNEL_REACHED, "{x}", _Server.Config.GeneralSettings.MaxPollsPerChannel.ToString()));
+                if (pollCount >= Server.Config.GeneralSettings.MaxPollsPerChannel)
+                    return CustomRuntimeResult<Poll>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_MAX_POLLS_X_PER_CHANNEL_REACHED, "{x}", Server.Config.GeneralSettings.MaxPollsPerChannel.ToString()));
 
 
-                var getPollResult = await GetPoll(name, channel.Id);
+                CustomRuntimeResult<Poll> getPollResult = GetPoll(name, channel.Id);
                 if (getPollResult.IsSuccess)
                     return CustomRuntimeResult<Poll>.FromError(ReplyDictionary.POLL_WITH_NAME_ALREADY_EXISTS);
 
 
-                List<PollOption> voteOptions = new List<PollOption>();
+                List<PollOption> voteOptions = [];
                 for (int i = 0; i < options?.Length; i++)
                 {
                     if (!string.IsNullOrWhiteSpace(options[i]))
@@ -122,7 +121,7 @@ namespace GeistDesWaldes.Polls
 
                 lock (_pollsLock)
                 {
-                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == poll.ChannelId) is ChannelPoll cp && cp != null)
+                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == poll.ChannelId) is { } cp)
                         cp.Polls.Add(poll);
                     else
                         _currentPolls.Add(new ChannelPoll(poll.ChannelId, poll));
@@ -140,7 +139,7 @@ namespace GeistDesWaldes.Polls
             }
         }
 
-        public async Task<CustomRuntimeResult<Poll>> GetPoll(string pollName, ulong channelId)
+        public CustomRuntimeResult<Poll> GetPoll(string pollName, ulong channelId)
         {
             try
             {
@@ -148,15 +147,12 @@ namespace GeistDesWaldes.Polls
 
                 lock (_pollsLock)
                 {
-                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is ChannelPoll channelPoll)
+                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is { Polls.Count: > 0 } channelPoll)
                     {
-                        if (channelPoll.Polls?.Count > 0)
-                        {
-                            Poll poll = channelPoll.Polls.FirstOrDefault(p => p.NameHash == nameHash);
+                        Poll poll = channelPoll.Polls.FirstOrDefault(p => p.NameHash == nameHash);
 
-                            if (poll != default)
-                                return CustomRuntimeResult<Poll>.FromSuccess(value: poll);
-                        }
+                        if (poll != null)
+                            return CustomRuntimeResult<Poll>.FromSuccess(value: poll);
                     }
                 }
 
@@ -174,8 +170,8 @@ namespace GeistDesWaldes.Polls
             {
                 int nameHash = pollName.ToLower().GetHashCode();
 
-                if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is ChannelPoll channelPoll
-                && channelPoll.Polls.FirstOrDefault(p => p.NameHash == nameHash) is Poll poll)
+                if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is { } channelPoll
+                && channelPoll.Polls.FirstOrDefault(p => p.NameHash == nameHash) is { } poll)
                 {
                     lock (_pollsLock)
                     {
@@ -208,7 +204,7 @@ namespace GeistDesWaldes.Polls
 
                 lock (_pollsLock)
                 {
-                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is ChannelPoll channelPoll)
+                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == channelId) is { } channelPoll)
                         pollCount = channelPoll.Polls.Count;
                 }
 
@@ -220,15 +216,15 @@ namespace GeistDesWaldes.Polls
         {
             try
             {
-                var preconResult = await _Server.CommandService.Search("polls vote").Commands[0].CheckPreconditionsAsync(new CommandContext(Launcher.Instance.DiscordClient, message), _Server.Services);
+                PreconditionResult preconResult = await Server.CommandService.Search("polls vote").Commands[0].CheckPreconditionsAsync(new CommandContext(Launcher.Instance.DiscordClient, message), Server.Services);
 
                 lock (_pollsLock)
                 {
-                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == message.Channel.Id) is ChannelPoll channelPoll)
+                    if (_currentPolls.FirstOrDefault(c => c.ChannelId == message.Channel.Id) is { } channelPoll)
                     {
                         for (int i = 0; i < channelPoll.Polls?.Count; i++)
                         {
-                            var result = channelPoll.Polls[i].TryVote(message.Content.Substring(prefixPosition), message.Author.Id);
+                            VoteEvaluationResult result = channelPoll.Polls[i].TryVote(message.Content.Substring(prefixPosition), message.Author.Id);
 
                             if (result != VoteEvaluationResult.Invalid)
                             {
@@ -245,7 +241,7 @@ namespace GeistDesWaldes.Polls
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TryVote), "", e));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TryVote), "", e));
                 return VoteEvaluationResult.Error;
             }
 
@@ -287,19 +283,19 @@ namespace GeistDesWaldes.Polls
 
         private Task SavePollsToFile()
         {
-            return GenericXmlSerializer.SaveAsync<List<ChannelPoll>>(_Server.LogHandler, _currentPolls, POLLS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<ChannelPoll>>(Server.LogHandler, _currentPolls, POLLS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
 
         private async Task LoadPollsFromFile()
         {
-            List<ChannelPoll> loadedPolls = await GenericXmlSerializer.LoadAsync<List<ChannelPoll>>(_Server.LogHandler, POLLS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            List<ChannelPoll> loadedPolls = await GenericXmlSerializer.LoadAsync<List<ChannelPoll>>(Server.LogHandler, POLLS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            if (loadedPolls == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(loadedPolls), "Loaded Polls == DEFAULT"));
+            if (loadedPolls == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(loadedPolls), "Loaded Polls == DEFAULT"));
             else
             {
                 //Ensure Hash for externally added Polls
-                for (int i = 0; i < loadedPolls?.Count; i++)
+                for (int i = 0; i < loadedPolls.Count; i++)
                 {
                     for (int j = 0; j < loadedPolls[i]?.Polls?.Count; j++)
                     {

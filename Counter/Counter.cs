@@ -4,6 +4,7 @@ using GeistDesWaldes.Dictionaries;
 using System;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeistDesWaldes.Counters
 {
@@ -42,13 +43,13 @@ namespace GeistDesWaldes.Counters
             Value += amount;
         }
 
-        public async Task ExecuteCallback(ICommandContext arg1, object[] arg2, IServiceProvider arg3, CommandInfo arg4)
+        public async Task ExecuteCallback(ICommandContext arg1, object[] arg2, IServiceProvider services, CommandInfo arg4)
         {
             string header = Name;
             string headerEmoji = null;
             string body = await ReturnValueText();
 
-            if (arg2.Length > 0 && arg2[0]?.ToString() is string parameter)
+            if (arg2.Length > 0 && arg2[0]?.ToString() is { } parameter)
             {
                 int amount = 1;
                 if (arg2.Length > 1 && arg2[1] is int a && a != 0)
@@ -73,9 +74,8 @@ namespace GeistDesWaldes.Counters
                 else
                     throw new Exception(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_UNDEFINED_PARAMETER_X, "{x}", parameter));
 
-                Server server = (Server)arg3.GetService(typeof(Server));
-
-                await server.CounterHandler.SaveCounterCollectionToFile();
+                CounterHandler handler = services.GetService<CounterHandler>();
+                await handler.SaveCounterCollectionToFile();
             }
 
             ChannelMessage message = new ChannelMessage(arg1)

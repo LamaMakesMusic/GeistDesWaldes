@@ -67,7 +67,7 @@ namespace GeistDesWaldes.Attributes
 
             try
             {
-                var result = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersFollowsAsync(fromId: userId, toId: channelId));
+                var result = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersFollowsAsync(fromId: userId, toId: channelId));
 
                 if (result.TotalFollows != 0)
                     follower = result.Follows[0];

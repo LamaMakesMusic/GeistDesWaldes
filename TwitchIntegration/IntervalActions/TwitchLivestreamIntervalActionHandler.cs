@@ -6,9 +6,11 @@ using GeistDesWaldes.Misc;
 using GeistDesWaldes.UserCommands;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
 
 namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 {
@@ -18,28 +20,28 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
 
         private const string ACTIONS_FILE_NAME = "TwitchLivestreamIntervalActions";
 
+        private readonly CommandInfoHandler _infoHandler;
+        
 
-        public TwitchLivestreamIntervalActionHandler(Server server) : base(server)
+        public TwitchLivestreamIntervalActionHandler(Server server, CommandInfoHandler infoHandler) : base(server)
         {
+            _infoHandler = infoHandler;
         }
 
-
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            Initialize().SafeAsync<TwitchLivestreamIntervalActionHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await Initialize();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<TwitchLivestreamIntervalActionHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task Initialize()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, ACTIONS_FILE_NAME, _actions);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, ACTIONS_FILE_NAME, _actions);
 
             await LoadActionsFromFile();
         }
@@ -58,12 +60,12 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
                 {
                     builder.Append(" | NULL");
                 }
-                else if (command != null && command.CommandsToExecute != null && command.CommandsToExecute.Length > 0)
+                else if (command.CommandsToExecute is { Length: > 0 })
                 {
                     if (string.IsNullOrWhiteSpace(command.Name))
                         builder.Append(" | missing name");
 
-                    var testResult = await command.TestCommandExecution(_Server.CommandService, _Server.Services);
+                    var testResult = await command.TestCommandExecution(Server.CommandService, Server.Services);
 
                     if (!testResult.IsSuccess)
                         builder.Append($" | {nameof(TwitchLivestreamIntervalActionHandler)} ERROR:\n").AppendLine($"......{testResult.Reason}");
@@ -83,28 +85,28 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
                 for (int i = 0; i < problematicEntries.Count; i++)
                     builder.AppendLine(problematicEntries[i]);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), $"{nameof(TwitchLivestreamIntervalActionHandler)}  OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), $"{nameof(TwitchLivestreamIntervalActionHandler)}  OK."), (int)ConsoleColor.DarkGreen);
         }
         
         public Task SaveActionsToFile()
         {
-            return GenericXmlSerializer.SaveAsync<List<CustomCommand>>(_Server.LogHandler, _actions, ACTIONS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<CustomCommand>>(Server.LogHandler, _actions, ACTIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadActionsFromFile()
         {
-            List<CustomCommand> loadedMessages = await GenericXmlSerializer.LoadAsync<List<CustomCommand>>(_Server.LogHandler, ACTIONS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            List<CustomCommand> loadedMessages = await GenericXmlSerializer.LoadAsync<List<CustomCommand>>(Server.LogHandler, ACTIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
             if (loadedMessages == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadActionsFromFile), $"Loaded {nameof(loadedMessages)} == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadActionsFromFile), $"Loaded {nameof(loadedMessages)} == DEFAULT"));
             else
                 _actions = loadedMessages;
 
             foreach (CustomCommand command in _actions)
             {
-                command.InitAfterLoadFromFile(_Server);
+                command.InitAfterLoadFromFile(Server);
             }
         }
 
@@ -118,11 +120,11 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
                 if (_actions.Any(m => m != null && m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_NAMED_X_ALREADY_EXISTS, "{x}", name));
 
-                CustomRuntimeResult<CommandMeta.CommandMetaInfo[]> parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commandsToExecute, context);
+                CustomRuntimeResult<CommandMetaInfo[]> parseResult = await _infoHandler.ParseToSerializableCommandInfo(commandsToExecute, context);
 
                 if (parseResult.IsSuccess)
                 {
-                    CustomCommand command = new CustomCommand(_Server, name, parseResult.ResultValue, channel != null ? channel.Id : 0);
+                    CustomCommand command = new CustomCommand(Server, name, parseResult.ResultValue, channel != null ? channel.Id : 0);
 
                     _actions.Add(command);
 
@@ -212,7 +214,7 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
         {
             try
             {
-                _actions = _actions.OrderBy(c => Launcher.Random.Next()).ToList();
+                _actions = _actions.OrderBy(_ => Launcher.Random.Next()).ToList();
 
                 await SaveActionsToFile();
                 return CustomRuntimeResult.FromSuccess();
@@ -227,7 +229,7 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions
         {
             try
             {
-                _actions.Sort((c1,c2) => c1.Name.CompareTo(c2.Name));
+                _actions.Sort((c1,c2) => string.Compare(c1.Name, c2.Name, Server.CultureInfo, CompareOptions.Ordinal));
 
                 await SaveActionsToFile();
                 return CustomRuntimeResult.FromSuccess();

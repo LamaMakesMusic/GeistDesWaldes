@@ -55,7 +55,7 @@ namespace GeistDesWaldes.Attributes
 
             TwitchUser user = null;
 
-            var userResponse = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: new List<string>() { input }));
+            var userResponse = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: new List<string>() { input }));
 
             StringBuilder errorReason = new StringBuilder($"Could not find matching twitch user. '{userResponse?.Users?.Length}' results: ");
             

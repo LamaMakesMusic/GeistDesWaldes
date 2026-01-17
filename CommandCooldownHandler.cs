@@ -62,9 +62,9 @@ namespace GeistDesWaldes
 
                 // Remove From Cooldown
                 if (_commandsOnCooldown.TryRemove(idTicksPair.Key, out long value))
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCommandCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCommandCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
                 else
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCommandCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCommandCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
             }
         }
         public async Task UpdateCategoryCooldown()
@@ -77,25 +77,25 @@ namespace GeistDesWaldes
 
                 // Remove From Cooldown
                 if (_categoriesOnCooldown.TryRemove(idTicksPair.Key, out long value))
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCategoryCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCategoryCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
                 else
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCategoryCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCategoryCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
             }
         }
 
         public async Task AddToCooldown(CommandInfo command, float durationInSeconds)
         {
             if (_commandsOnCooldown.TryAdd(command.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{command.Name}' to Cooldown."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{command.Name}' to Cooldown."));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{command.Name}' to Cooldown."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{command.Name}' to Cooldown."));
         }
         public async Task AddToCooldown(CustomCommandCategory category, float durationInSeconds)
         {
             if (category != null && _categoriesOnCooldown.TryAdd(category.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{category.Name}' to Cooldown."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{category.Name}' to Cooldown."));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{category.Name}' to Cooldown."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{category.Name}' to Cooldown."));
         }
 
     }

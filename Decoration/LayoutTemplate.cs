@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.WebSocket;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Dictionaries;
 using System;
@@ -7,6 +6,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeistDesWaldes.Decoration
 {
@@ -37,9 +37,9 @@ namespace GeistDesWaldes.Decoration
         public async Task<CustomRuntimeResult> PerformSelfCheck()
         {
             bool issues = false;
-            var builder = new StringBuilder();
+            StringBuilder builder = new();
 
-            foreach (var layout in ChannelLayouts)
+            foreach (ChannelLayout layout in ChannelLayouts)
             {
                 CustomRuntimeResult result = layout.PerformSelfCheck();
 
@@ -53,8 +53,8 @@ namespace GeistDesWaldes.Decoration
 
             if (issues)
                 return CustomRuntimeResult.FromError(builder.ToString());
-            else
-                return CustomRuntimeResult.FromSuccess();
+            
+            return CustomRuntimeResult.FromSuccess();
         }
 
 
@@ -62,15 +62,15 @@ namespace GeistDesWaldes.Decoration
         {
             try
             {
-                var issues = new StringBuilder();
+                StringBuilder issues = new();
 
-                foreach (var layout in ChannelLayouts)
+                foreach (ChannelLayout layout in ChannelLayouts)
                 {
-                    var result = await layout.ApplyChannelLayoutAsync();
+                    CustomRuntimeResult result = await layout.ApplyChannelLayoutAsync();
 
-                    if (result.IsSuccess == false)
+                    if (!result.IsSuccess)
                     {
-                        var channel = await Launcher.Instance.GetChannel<IChannel>(layout.ChannelId);
+                        IChannel channel = await Launcher.Instance.GetChannel<IChannel>(layout.ChannelId);
                         issues.AppendLine($"{channel.Name} ({channel.Id}): {result.Reason}");
                     }
                 }
@@ -91,15 +91,15 @@ namespace GeistDesWaldes.Decoration
         {
             try
             {
-                var issues = new StringBuilder();
+                StringBuilder issues = new();
 
-                foreach (var layout in ChannelLayouts)
+                foreach (ChannelLayout layout in ChannelLayouts)
                 {
-                    var result = await layout.RevertChannelLayoutAsync();
+                    CustomRuntimeResult result = await layout.RevertChannelLayoutAsync();
 
-                    if (result.IsSuccess == false)
+                    if (!result.IsSuccess)
                     {
-                        var channel = await Launcher.Instance.GetChannel<IChannel>(layout.ChannelId);
+                        IChannel channel = await Launcher.Instance.GetChannel<IChannel>(layout.ChannelId);
                         issues.AppendLine($"{channel.Name} ({channel.Id}): {result.Reason}");
                     }
                 }
@@ -120,12 +120,12 @@ namespace GeistDesWaldes.Decoration
 
         public async Task<CustomRuntimeResult> AddChannelLayout(ulong channelId)
         {
-            if (Launcher.Instance.DiscordClient.GetChannel(channelId) is SocketChannel channel && channel != null)
+            if (Launcher.Instance.DiscordClient.GetChannel(channelId) is { } channel)
             {
                 if ((await GetChannelLayout(channelId)).IsSuccess)
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_ALREADY_IN_TEMPLATE, "{x}", channelId.ToString()));
 
-                var layout = new ChannelLayout
+                ChannelLayout layout = new()
                 {
                     ChannelId = channel.Id,
                     TemplateReference = this
@@ -140,22 +140,23 @@ namespace GeistDesWaldes.Decoration
         }
         public async Task<CustomRuntimeResult<ChannelLayout>> GetChannelLayout(ulong channelId)
         {
-            var result = ChannelLayouts.Find(c => c.ChannelId == channelId);
+            ChannelLayout result = ChannelLayouts.Find(c => c.ChannelId == channelId);
 
             if (result != null)
                 return CustomRuntimeResult<ChannelLayout>.FromSuccess(value: result);
 
             return CustomRuntimeResult<ChannelLayout>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_IS_NOT_IN_TEMPLATE, "{x}", channelId.ToString()));
         }
+        
         public async Task<CustomRuntimeResult> RemoveChannelLayout(Server server, ulong channelId, bool revertIfActive = true)
         {
             try
             {
-                var getResult = await GetChannelLayout(channelId);
+                CustomRuntimeResult<ChannelLayout> getResult = await GetChannelLayout(channelId);
 
                 if (getResult.IsSuccess)
                 {
-                    if (revertIfActive && server.LayoutTemplateHandler.IsActiveLayout(this))
+                    if (revertIfActive && server.Services.GetService<LayoutTemplateHandler>().IsActiveLayout(this))
                         await getResult.ResultValue.RevertChannelLayoutAsync();
 
                     ChannelLayouts.Remove(getResult.ResultValue);
@@ -172,21 +173,21 @@ namespace GeistDesWaldes.Decoration
 
         public void RefreshChannelLayoutReference()
         {
-            foreach (var c in ChannelLayouts)
+            foreach (ChannelLayout c in ChannelLayouts)
                 c.TemplateReference = this;
         }
         public void EnsureFormat()
         {
-            foreach (var c in ChannelLayouts)
+            foreach (ChannelLayout c in ChannelLayouts)
                 c.EnsureFormat();
         }
 
 
         public string DetailsToString()
         {
-            var result = new StringBuilder($"{TemplateName} => Channel Layouts:\n");
+            StringBuilder result = new StringBuilder($"{TemplateName} => Channel Layouts:\n");
 
-            foreach (var layout in ChannelLayouts)
+            foreach (ChannelLayout layout in ChannelLayouts)
                 result.Append($" [{layout.DetailsToString()}]");
 
             return result.ToString();

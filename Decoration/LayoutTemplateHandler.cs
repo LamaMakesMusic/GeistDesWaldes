@@ -14,7 +14,7 @@ namespace GeistDesWaldes.Decoration
         public LayoutTemplateDictionary TemplateDictionary;
 
         private const string LAYOUT_TEMPLATES_FILE_NAME = "LayoutTemplates";
-        private bool _inProgress = false;
+        private bool _inProgress;
 
 
         public LayoutTemplateHandler(Server server) : base(server)
@@ -22,31 +22,32 @@ namespace GeistDesWaldes.Decoration
             TemplateDictionary = new LayoutTemplateDictionary();
         }
         
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
+            await base.OnServerStartUp();
 
-            InitializeLayoutTemplateHandler().SafeAsync<LayoutTemplateHandler>(_Server.LogHandler);
+            await InitializeLayoutTemplateHandler();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
+            await base.OnCheckIntegrity();
 
-            CheckIntegrity().SafeAsync<LayoutTemplateHandler>(_Server.LogHandler);
+            await CheckIntegrity();
         }
 
         private async Task InitializeLayoutTemplateHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, LAYOUT_TEMPLATES_FILE_NAME, TemplateDictionary);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, LAYOUT_TEMPLATES_FILE_NAME, TemplateDictionary);
 
             await LoadTemplatesFromFile();
         }
         private async Task CheckIntegrity()
         {
             bool issues = false;
-            var builder = new StringBuilder();
+            StringBuilder builder = new();
 
-            foreach (var template in TemplateDictionary.Templates)
+            foreach (LayoutTemplate template in TemplateDictionary.Templates)
             {
                 CustomRuntimeResult checkResult = await template.PerformSelfCheck();
 
@@ -59,15 +60,15 @@ namespace GeistDesWaldes.Decoration
             }
 
             if (issues)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Layout Templates OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Layout Templates OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
         public async Task<CustomRuntimeResult<LayoutTemplate>> GetTemplate(string templateName)
         {
-            var result = TemplateDictionary.Templates.Find(t => t.TemplateNameHash == templateName.ToLower().GetHashCode());
+            LayoutTemplate result = TemplateDictionary.Templates.Find(t => t.TemplateNameHash == templateName.ToLower().GetHashCode());
 
             if (result != null)
                 return CustomRuntimeResult<LayoutTemplate>.FromSuccess(value: result);
@@ -97,13 +98,13 @@ namespace GeistDesWaldes.Decoration
         {
             try
             {
-                var getResult = await GetTemplate(templateName);
+                CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(templateName);
 
                 if (getResult.IsSuccess)
                 {
                     if (revertIfActive && IsActiveLayout(getResult.ResultValue))
                     {
-                        var revertResult = await RevertActiveTemplate();
+                        CustomRuntimeResult revertResult = await RevertActiveTemplate();
 
                         if (!revertResult.IsSuccess)
                             return revertResult;
@@ -127,7 +128,7 @@ namespace GeistDesWaldes.Decoration
                 if ((await GetTemplate(templateName)).IsSuccess)
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_NAMED_X_ALREADY_EXISTS, "{x}", templateName));
 
-                var result = new LayoutTemplate(templateName);
+                LayoutTemplate result = new(templateName);
 
                 return await AddTemplate(result);
             }
@@ -149,15 +150,15 @@ namespace GeistDesWaldes.Decoration
 
                 _inProgress = true;
 
-                var getResult = await GetTemplate(templateName);
+                CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(templateName);
 
                 if (getResult.IsSuccess)
                 {
-                    var revertResult = await RevertActiveTemplate(true);
+                    CustomRuntimeResult revertResult = await RevertActiveTemplate(true);
 
                     if (revertResult.IsSuccess)
                     {
-                        var applyResult = await getResult.ResultValue.ApplyAsync(_Server.LogHandler);
+                        CustomRuntimeResult applyResult = await getResult.ResultValue.ApplyAsync(Server.LogHandler);
 
                         TemplateDictionary.ActiveTemplate = getResult.ResultValue.TemplateName;
 
@@ -166,8 +167,10 @@ namespace GeistDesWaldes.Decoration
                     else
                         result = revertResult;
                 }
-
-                result = getResult;
+                else
+                {
+                    result = getResult;
+                }
             }
             catch (Exception e)
             {
@@ -197,11 +200,11 @@ namespace GeistDesWaldes.Decoration
                     result = CustomRuntimeResult.FromSuccess();
                 else
                 {
-                    var getResult = await GetTemplate(TemplateDictionary.ActiveTemplate);
+                    CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(TemplateDictionary.ActiveTemplate);
 
                     if (getResult.IsSuccess)
                     {
-                        var revertResult = await getResult.ResultValue.RevertAsync(_Server.LogHandler);
+                        CustomRuntimeResult revertResult = await getResult.ResultValue.RevertAsync(Server.LogHandler);
 
                         TemplateDictionary.ActiveTemplate = null;
 
@@ -231,22 +234,20 @@ namespace GeistDesWaldes.Decoration
 
         public Task SaveTemplatesToFile()
         {
-            return GenericXmlSerializer.SaveAsync<LayoutTemplateDictionary>(_Server.LogHandler, TemplateDictionary, LAYOUT_TEMPLATES_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<LayoutTemplateDictionary>(Server.LogHandler, TemplateDictionary, LAYOUT_TEMPLATES_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadTemplatesFromFile()
         {
-            LayoutTemplateDictionary loadedDictionary = null;
+            LayoutTemplateDictionary loadedDictionary = await GenericXmlSerializer.LoadAsync<LayoutTemplateDictionary>(Server.LogHandler, LAYOUT_TEMPLATES_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            loadedDictionary = await GenericXmlSerializer.LoadAsync<LayoutTemplateDictionary>(_Server.LogHandler, LAYOUT_TEMPLATES_FILE_NAME, _Server.ServerFilesDirectoryPath);
-
-            if (loadedDictionary == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadTemplatesFromFile), $"Loaded {nameof(LayoutTemplateDictionary)} == DEFAULT"));
+            if (loadedDictionary == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadTemplatesFromFile), $"Loaded {nameof(LayoutTemplateDictionary)} == DEFAULT"));
             else
                 TemplateDictionary = loadedDictionary;
 
 
             // Generate Hashes
-            foreach (var template in TemplateDictionary.Templates)
+            foreach (LayoutTemplate template in TemplateDictionary.Templates)
             {
                 template.SetName(template.TemplateName);
                 template.RefreshChannelLayoutReference();

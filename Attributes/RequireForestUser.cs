@@ -2,22 +2,19 @@
 using Discord.Commands;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.Users;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeistDesWaldes.Attributes
 {
     public class RequireForestUser : PreconditionAttribute
     {
-        public RequireForestUser()
-        {
-
-        }
-
         public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
         {
-            Server server = (Server) services.GetService(typeof(Server));
-            LogHandler logger = (LogHandler) services.GetService(typeof(LogHandler));
-
-            var getUserResult = await server.ForestUserHandler.GetUser(context.User);
+            LogHandler logger = services.GetService<LogHandler>();
+            ForestUserHandler userHandler = services.GetService<ForestUserHandler>();
+            
+            CustomRuntimeResult<ForestUser> getUserResult = await userHandler.GetUser(context.User);
 
             string errorReason = string.Empty;
 

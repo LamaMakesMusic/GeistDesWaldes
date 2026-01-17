@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using static GeistDesWaldes.Decoration.ChannelLayoutMap;
 
 namespace GeistDesWaldes.Decoration
@@ -26,22 +27,17 @@ namespace GeistDesWaldes.Decoration
 
         public ulong ChannelId;
 
-        public List<ChannelLayoutMap> LayoutMaps;
+        public List<ChannelLayoutMap> LayoutMaps = [];
 
         internal LayoutTemplate TemplateReference;
 
 
-        public ChannelLayout()
-        {
-            LayoutMaps = new List<ChannelLayoutMap>();
-        }
-
         public CustomRuntimeResult PerformSelfCheck()
         {
             bool issues = false;
-            var builder = new StringBuilder($".........");
+            StringBuilder builder = new($".........");
 
-            var channel = Launcher.Instance.DiscordClient.GetChannel(ChannelId);
+            SocketChannel channel = Launcher.Instance.DiscordClient.GetChannel(ChannelId);
 
             if (TemplateReference == null)
             {
@@ -54,7 +50,7 @@ namespace GeistDesWaldes.Decoration
                 issues = true;
                 builder.Append($"Channel == NULL | ");
             }
-            else if ((channel is SocketTextChannel || channel is SocketVoiceChannel) == false)
+            else if (channel is not (SocketTextChannel or SocketVoiceChannel))
             {
                 issues = true;
                 builder.Append($"Channel is NOT {nameof(SocketTextChannel)} nor {nameof(SocketVoiceChannel)} | ");
@@ -92,10 +88,10 @@ namespace GeistDesWaldes.Decoration
             }
 
             byte[] nameData = Encoding.Unicode.GetBytes(string.IsNullOrWhiteSpace(convName) ? "" : convName.Trim());
-            convName = nameData != null ? Encoding.Unicode.GetString(nameData) : "";
+            convName = Encoding.Unicode.GetString(nameData);
 
             byte[] topicData = Encoding.Unicode.GetBytes(string.IsNullOrWhiteSpace(convTopic) ? "" : convTopic);
-            convTopic = topicData != null ? Encoding.Unicode.GetString(topicData) : "";
+            convTopic = Encoding.Unicode.GetString(topicData);
 
             return (convName, convTopic);
         }
@@ -180,12 +176,13 @@ namespace GeistDesWaldes.Decoration
 
         public async Task<CustomRuntimeResult> AddLayoutMap(Server server, ChannelLayoutMap map)
         {
-            var match = LayoutMaps.Find(l => l.Index == map.Index && l.LayoutTarget == map.LayoutTarget && l.Value.Equals(map.Value, StringComparison.Ordinal));
+            ChannelLayoutMap match = LayoutMaps.Find(l => l.Index == map.Index && l.LayoutTarget == map.LayoutTarget && l.Value.Equals(map.Value, StringComparison.Ordinal));
 
-            if (match != default)
+            if (match != null)
                 return CustomRuntimeResult.FromError($"{ReplyDictionary.MAP_OF_THIS_KIND_ALREADY_EXISTS_FOR_THIS_CONSTELLATION} (channel: {ChannelId} | target: {match.LayoutTarget})");
 
-            bool isActive = server.LayoutTemplateHandler.IsActiveLayout(TemplateReference);
+            bool isActive = server.Services.GetService<LayoutTemplateHandler>().IsActiveLayout(TemplateReference);
+            
             if (isActive)
                 await RevertChannelLayoutAsync();
 
@@ -198,12 +195,13 @@ namespace GeistDesWaldes.Decoration
         }
         public async Task<CustomRuntimeResult> RemoveLayoutMap(Server server, ChannelLayoutMap map)
         {
-            var match = LayoutMaps.Find(l => l.Index == map.Index && l.LayoutTarget == map.LayoutTarget && l.Value.Equals(map.Value, StringComparison.Ordinal));
+            ChannelLayoutMap match = LayoutMaps.Find(l => l.Index == map.Index && l.LayoutTarget == map.LayoutTarget && l.Value.Equals(map.Value, StringComparison.Ordinal));
 
-            if (match == default)
-                return CustomRuntimeResult.FromError($"{ReplyDictionary.MAP_OF_THIS_KIND_DOES_NOT_EXISTS_FOR_THIS_CONSTELLATION} (channel: {ChannelId} | target: {match.LayoutTarget})");
+            if (match == null)
+                return CustomRuntimeResult.FromError($"{ReplyDictionary.MAP_OF_THIS_KIND_DOES_NOT_EXISTS_FOR_THIS_CONSTELLATION} (channel: {ChannelId} | target: {map.LayoutTarget})");
 
-            bool isActive = server.LayoutTemplateHandler.IsActiveLayout(TemplateReference);
+            bool isActive = server.Services.GetService<LayoutTemplateHandler>().IsActiveLayout(TemplateReference);
+            
             if (isActive)
                 await RevertChannelLayoutAsync();
 
@@ -219,10 +217,10 @@ namespace GeistDesWaldes.Decoration
         {
             try
             {
-                var (name, topic) = GetChannelInfo();
+                (string name, string topic) = GetChannelInfo();
 
                 // e.g. "channelname" >>> [0,(°-°)] ==> "(°-°)channelname"
-                foreach (var map in LayoutMaps)
+                foreach (ChannelLayoutMap map in LayoutMaps)
                 {
                     switch (map.LayoutTarget)
                     {
@@ -250,9 +248,9 @@ namespace GeistDesWaldes.Decoration
             try
             {
                 // Try reversing the process
-                var (name, topic) = GetChannelInfo();
+                (string name, string topic) = GetChannelInfo();
 
-                foreach (var map in LayoutMaps)
+                foreach (ChannelLayoutMap map in LayoutMaps)
                 {
                     switch (map.LayoutTarget)
                     {
@@ -278,14 +276,14 @@ namespace GeistDesWaldes.Decoration
 
         public void EnsureFormat()
         {
-            foreach (var m in LayoutMaps)
+            foreach (ChannelLayoutMap m in LayoutMaps)
                 m.EnsureFormat();
         }
 
         public string DetailsToString()
         {
-            var result = new StringBuilder();
-            var channel = Launcher.Instance.DiscordClient.GetChannel(ChannelId);
+            StringBuilder result = new();
+            SocketChannel channel = Launcher.Instance.DiscordClient.GetChannel(ChannelId);
 
             string channelName = ChannelId.ToString();
             if (channel is SocketTextChannel tc)
@@ -301,8 +299,8 @@ namespace GeistDesWaldes.Decoration
             {
                 result.Append($"{option}(");
 
-                var maps = LayoutMaps.FindAll(m => m.LayoutTarget == option);
-                foreach (var map in maps)
+                List<ChannelLayoutMap> maps = LayoutMaps.FindAll(m => m.LayoutTarget == option);
+                foreach (ChannelLayoutMap map in maps)
                     result.Append($"{map} | ");
 
                 if (maps.Count > 0)

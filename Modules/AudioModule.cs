@@ -4,6 +4,7 @@ using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Dictionaries;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.Audio;
 
 namespace GeistDesWaldes.Modules
 {
@@ -11,9 +12,9 @@ namespace GeistDesWaldes.Modules
     [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "AudioPermissions")]
     [RequireIsBot(Group = "AudioPermissions")]
     [Group("audio")]
-    public class AudioModule : ModuleBase<CommandContext>, IServerModule
+    public class AudioModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Command("join")]
         [Summary("Lets the bot join a voice channel.")]
@@ -38,14 +39,14 @@ namespace GeistDesWaldes.Modules
         [Summary("Lets the bot leave the current voice channel.")]
         public async Task<RuntimeResult> LeaveChannel()
         {
-            return await _Server.AudioHandler.LeaveVoiceChannel();
+            return await Server.GetModule<AudioHandler>().LeaveVoiceChannel();
         }
 
         [Command("play")]
         [Summary("Play an audio file in the joined voice channel.")]
         public async Task<RuntimeResult> PlayFile(string urlOrLocalPath)
         {
-            return await _Server.AudioHandler.QueueAudioFileAtPath(urlOrLocalPath, Context);
+            return await Server.GetModule<AudioHandler>().QueueAudioFileAtPath(urlOrLocalPath, Context);
         }
 
         [Command("playRandom"), Alias("play random")]
@@ -55,7 +56,7 @@ namespace GeistDesWaldes.Modules
             if (audioFiles == null || audioFiles.Length < 1)
                 return CustomRuntimeResult.FromError(ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY);
 
-            audioFiles = await _Server.AudioHandler.GetAllFilesInPaths(audioFiles, _Server.AudioHandler.AudioDirectoryPath);
+            audioFiles = await Server.GetModule<AudioHandler>().GetAllFilesInPaths(audioFiles, Server.GetModule<AudioHandler>().AudioDirectoryPath);
 
             if (audioFiles == null || audioFiles.Length == 0)
                 return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_FIND_FILES);

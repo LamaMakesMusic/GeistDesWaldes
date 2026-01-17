@@ -1,33 +1,36 @@
 ﻿using Discord;
-using System;
+using System.Threading.Tasks;
 
 namespace GeistDesWaldes
 {
-    public abstract class BaseHandler
+    public abstract class BaseHandler : IServerModule
     {
-        protected readonly Server _Server;
+        public virtual int Priority { get; } = 0; 
+        
+        protected readonly Server Server;
 
+        
         protected BaseHandler(Server server)
         {
-            _Server = server;
-            _Server.OnServerStart += OnServerStart;
-            _Server.OnCheckIntegrity += OnCheckIntegrity;
-            _Server.OnServerShutdown += OnServerShutdown;
+            Server = server;
         }
 
-        internal virtual void OnServerStart(object source, EventArgs e) 
+        public virtual Task OnServerStartUp() 
         {
-            _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnServerStart), GetType().Name));
+            Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnServerStartUp), GetType().Name));
+            return Task.CompletedTask;
         }
 
-        internal virtual void OnServerShutdown(object source, EventArgs e)
+        public virtual Task OnServerShutdown()
         {
-            _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnServerShutdown), GetType().Name));
+            Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnServerShutdown), GetType().Name));
+            return Task.CompletedTask;
         }
 
-        internal virtual void OnCheckIntegrity(object source, EventArgs e)
+        public virtual Task OnCheckIntegrity()
         {
-            _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnCheckIntegrity), GetType().Name));
+            Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(OnCheckIntegrity), GetType().Name));
+            return Task.CompletedTask;
         }
     }
 }

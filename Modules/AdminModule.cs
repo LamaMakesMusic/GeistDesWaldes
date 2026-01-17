@@ -9,29 +9,30 @@ using GeistDesWaldes.UserCommands;
 using System;
 using System.Text;
 using System.Threading.Tasks;
+using GeistDesWaldes.TwitchIntegration.IntervalActions;
 
 namespace GeistDesWaldes.Modules
 {
     [RequireUserPermission(GuildPermission.Administrator, Group = "AdminPermissions")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "AdminPermissions")]
     [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "AdminPermissions")]
     [Group("admin")]
-    public class AdminModule : ModuleBase<CommandContext>, IServerModule
+    public class AdminModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Command("Restart")]
         [Summary("Restarts the server.")]
         public async Task<RuntimeResult> RestartServer()
         {
-            await Launcher.Instance.RestartServer(_Server);
+            await Launcher.Instance.RestartServer(Server);
             return CustomRuntimeResult.FromSuccess();
         }
 
 
         [Group("general")]
-        public class AdminModuleGeneral : ModuleBase<CommandContext>, IServerModule
+        public class AdminModuleGeneral : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("SetCommandPrefix")]
             [Summary("Sets the command prefix to the specified character.")]
@@ -42,13 +43,13 @@ namespace GeistDesWaldes.Modules
                     if (char.IsWhiteSpace(prefix))
                         throw new ArgumentNullException(nameof(prefix), "Prefix can not be space!");
 
-                    if (prefix == _Server.Config.GeneralSettings.PollVotePrefix)
+                    if (prefix == Server.Config.GeneralSettings.PollVotePrefix)
                         throw new Exception("Command Prefix and Poll Vote Prefix cannot be the same character!");
 
-                    char oldValue = _Server.Config.GeneralSettings.CommandPrefix;
+                    char oldValue = Server.Config.GeneralSettings.CommandPrefix;
 
-                    _Server.Config.GeneralSettings.CommandPrefix = prefix;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.GeneralSettings.CommandPrefix = prefix;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{oldValue}", $"{prefix}");
                     await msg.SendAsync();
@@ -67,7 +68,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{_Server.Config.GeneralSettings.CommandPrefix}");
+                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{Server.Config.GeneralSettings.CommandPrefix}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -88,13 +89,13 @@ namespace GeistDesWaldes.Modules
                     if (char.IsWhiteSpace(prefix))
                         throw new ArgumentNullException(nameof(prefix), "Prefix can not be space!");
 
-                    if (prefix == _Server.Config.GeneralSettings.CommandPrefix)
+                    if (prefix == Server.Config.GeneralSettings.CommandPrefix)
                         throw new Exception("Poll Vote Prefix and Command Prefix cannot be the same character!");
 
-                    char oldValue = _Server.Config.GeneralSettings.PollVotePrefix;
+                    char oldValue = Server.Config.GeneralSettings.PollVotePrefix;
 
-                    _Server.Config.GeneralSettings.PollVotePrefix = prefix;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.GeneralSettings.PollVotePrefix = prefix;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{oldValue}", $"{prefix}");
                     await msg.SendAsync();
@@ -113,7 +114,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{_Server.Config.GeneralSettings.PollVotePrefix}");
+                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{Server.Config.GeneralSettings.PollVotePrefix}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -134,10 +135,10 @@ namespace GeistDesWaldes.Modules
                     if (seconds < .5)
                         seconds = .5;
 
-                    double oldValue = _Server.Config.UserSettings.UserCooldownInSeconds;
+                    double oldValue = Server.Config.UserSettings.UserCooldownInSeconds;
 
-                    _Server.Config.UserSettings.UserCooldownInSeconds = seconds;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.UserSettings.UserCooldownInSeconds = seconds;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{oldValue}s", $"{seconds}s");
                     await msg.SendAsync();
@@ -156,7 +157,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{_Server.Config.UserSettings.UserCooldownInSeconds}s");
+                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{Server.Config.UserSettings.UserCooldownInSeconds}s");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -170,9 +171,9 @@ namespace GeistDesWaldes.Modules
 
 
         [Group("discord")]
-        public class AdminModuleDiscord : ModuleBase<CommandContext>, IServerModule
+        public class AdminModuleDiscord : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
 
             [Command("SetDefaultTextChannel")]
@@ -184,10 +185,10 @@ namespace GeistDesWaldes.Modules
                     if (textChannel == null)
                         throw new ArgumentNullException(nameof(textChannel));
 
-                    ITextChannel oldValue = await Launcher.Instance.GetChannel<ITextChannel>(_Server.Config.DiscordSettings.DefaultBotTextChannel);
+                    ITextChannel oldValue = await Launcher.Instance.GetChannel<ITextChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
 
-                    _Server.Config.DiscordSettings.DefaultBotTextChannel = textChannel.Id;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.DiscordSettings.DefaultBotTextChannel = textChannel.Id;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), (oldValue != null ? oldValue.Name : "null"), textChannel.Name);
                     await msg.SendAsync();
@@ -206,7 +207,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ITextChannel oldValue = await Launcher.Instance.GetChannel<ITextChannel>(_Server.Config.DiscordSettings.DefaultBotTextChannel);
+                    ITextChannel oldValue = await Launcher.Instance.GetChannel<ITextChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
                     ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), (oldValue != null ? oldValue.Name : "null"));
                     await msg.SendAsync();
 
@@ -228,10 +229,10 @@ namespace GeistDesWaldes.Modules
                     if (voiceChannel == null)
                         throw new ArgumentNullException(nameof(voiceChannel));
 
-                    IVoiceChannel oldValue = await Launcher.Instance.GetChannel<IVoiceChannel>(_Server.Config.DiscordSettings.DefaultBotVoiceChannel);
+                    IVoiceChannel oldValue = await Launcher.Instance.GetChannel<IVoiceChannel>(Server.Config.DiscordSettings.DefaultBotVoiceChannel);
 
-                    _Server.Config.DiscordSettings.DefaultBotVoiceChannel = voiceChannel.Id;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.DiscordSettings.DefaultBotVoiceChannel = voiceChannel.Id;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), (oldValue != null ? oldValue.Name : "null"), voiceChannel.Name);
                     await msg.SendAsync();
@@ -250,7 +251,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    IVoiceChannel oldValue = await Launcher.Instance.GetChannel<IVoiceChannel>(_Server.Config.DiscordSettings.DefaultBotVoiceChannel);
+                    IVoiceChannel oldValue = await Launcher.Instance.GetChannel<IVoiceChannel>(Server.Config.DiscordSettings.DefaultBotVoiceChannel);
                     ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), (oldValue != null ? oldValue.Name : "null"));
                     await msg.SendAsync();
 
@@ -265,9 +266,9 @@ namespace GeistDesWaldes.Modules
 
 
         [Group("twitch")]
-        public class AdminModuleTwitch : ModuleBase<CommandContext>, IServerModule
+        public class AdminModuleTwitch : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
 
             [Command("SetTwitchChannelName")]
@@ -278,16 +279,16 @@ namespace GeistDesWaldes.Modules
                 {
                     channelName = channelName.Trim().ToLower();
 
-                    string oldValue = _Server.Config.TwitchSettings.TwitchChannelName;
+                    string oldValue = Server.Config.TwitchSettings.TwitchChannelName;
 
-                    _Server.Config.TwitchSettings.TwitchChannelName = channelName;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.TwitchSettings.TwitchChannelName = channelName;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     if (!string.Equals(channelName, oldValue, StringComparison.OrdinalIgnoreCase))
                     {
-                        TwitchIntegrationHandler.Instance.StopListening(_Server);
+                        TwitchIntegrationHandler.Instance.StopListening(Server);
                         await Task.Delay(3000);
-                        await TwitchIntegrationHandler.Instance.StartListening(_Server);
+                        await TwitchIntegrationHandler.Instance.StartListening(Server);
                     }
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), oldValue, channelName);
@@ -307,7 +308,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), _Server.Config.TwitchSettings.TwitchChannelName);
+                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), Server.Config.TwitchSettings.TwitchChannelName);
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -325,11 +326,11 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ulong oldValue = _Server.Config.TwitchSettings.TwitchMessageChannelId;
+                    ulong oldValue = Server.Config.TwitchSettings.TwitchMessageChannelId;
                     ulong newValue = TwitchSettingsEntry.GenerateTwitchMessageChannelId();
 
-                    _Server.Config.TwitchSettings.TwitchMessageChannelId = newValue;
-                    await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                    Server.Config.TwitchSettings.TwitchMessageChannelId = newValue;
+                    await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                     ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{oldValue}", $"{newValue}");
                     await msg.SendAsync();
@@ -348,7 +349,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{_Server.Config.TwitchSettings.TwitchMessageChannelId}");
+                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{Server.Config.TwitchSettings.TwitchMessageChannelId}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -361,9 +362,9 @@ namespace GeistDesWaldes.Modules
 
 
             [Group("livestream")]
-            public class AdminModuleTwitchLivestream : ModuleBase<CommandContext>, IServerModule
+            public class AdminModuleTwitchLivestream : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
 
                 [Command("SetLivestreamOneShotWindow")]
@@ -375,10 +376,10 @@ namespace GeistDesWaldes.Modules
                         if (minutes < 1)
                             minutes = 1;
 
-                        int oldValue = _Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes;
+                        int oldValue = Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes;
 
-                        _Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes = minutes;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes = minutes;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                         await msg.SendAsync();
@@ -397,7 +398,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{_Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes} minutes");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes} minutes");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -418,10 +419,10 @@ namespace GeistDesWaldes.Modules
                         if (minutes < 1)
                             minutes = 1;
 
-                        int oldValue = _Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes;
+                        int oldValue = Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes;
 
-                        _Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes = minutes;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes = minutes;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                         await msg.SendAsync();
@@ -440,7 +441,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{_Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes} minutes");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes} minutes");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -461,10 +462,10 @@ namespace GeistDesWaldes.Modules
                         if (messages < 1)
                             messages = 1;
 
-                        int oldValue = _Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages;
+                        int oldValue = Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages;
 
-                        _Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages = messages;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages = messages;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{oldValue} messages", $"{messages} messages");
                         await msg.SendAsync();
@@ -483,7 +484,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{_Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages} messages");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages} messages");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -498,9 +499,9 @@ namespace GeistDesWaldes.Modules
 
 
             [Group("points")]
-            public class AdminModuleTwitchPoints : ModuleBase<CommandContext>, IServerModule
+            public class AdminModuleTwitchPoints : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
 
                 [Command("SetPointsPerMonitorInterval")]
@@ -509,10 +510,10 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        int oldValue = _Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval = points;
+                        int oldValue = Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval = points;
 
-                        _Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval = points;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval = points;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{oldValue}", $"{points}");
                         await msg.SendAsync();
@@ -531,7 +532,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{_Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval}");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval}");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -549,10 +550,10 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        int oldValue = _Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters;
+                        int oldValue = Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters;
 
-                        _Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters = points;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters = points;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{oldValue}", $"{points}");
                         await msg.SendAsync();
@@ -571,7 +572,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{_Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters}");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters}");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -589,10 +590,10 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        int oldValue = _Server.Config.TwitchSettings.ActiveChatterWindowInMinutes;
+                        int oldValue = Server.Config.TwitchSettings.ActiveChatterWindowInMinutes;
 
-                        _Server.Config.TwitchSettings.ActiveChatterWindowInMinutes = minutes;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.ActiveChatterWindowInMinutes = minutes;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                         await msg.SendAsync();
@@ -611,7 +612,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{_Server.Config.TwitchSettings.ActiveChatterWindowInMinutes} minutes");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{Server.Config.TwitchSettings.ActiveChatterWindowInMinutes} minutes");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -625,9 +626,9 @@ namespace GeistDesWaldes.Modules
 
 
             [Group("alerts")]
-            public class AdminModuleTwitchAlerts : ModuleBase<CommandContext>, IServerModule
+            public class AdminModuleTwitchAlerts : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
 
                 [Command("SetFollowAlertCooldown")]
@@ -636,10 +637,10 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        int oldValue = _Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes;
+                        int oldValue = Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes;
 
-                        _Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes = minutes;
-                        await ConfigurationHandler.SaveConfigToFile(_Server.Config);
+                        Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes = minutes;
+                        await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
                         ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                         await msg.SendAsync();
@@ -658,7 +659,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{_Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes} minutes");
+                        ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes} minutes");
                         await msg.SendAsync();
 
                         return CustomRuntimeResult.FromSuccess();
@@ -672,18 +673,18 @@ namespace GeistDesWaldes.Modules
 
 
             [Group("actions")]
-            public class AdminModuleTwitchActions : ModuleBase<CommandContext>, IServerModule
+            public class AdminModuleTwitchActions : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
 
                 [Command("AddIntervalAction")]
                 [Summary("Adds livestream interval action.")]
                 public async Task<RuntimeResult> AddIntervalAction(string name, string[] commandsToExecute, IChannel channel = null)
                 {
-                    channel ??= await Launcher.Instance.GetChannel<IChannel>(_Server.Config.TwitchSettings.TwitchMessageChannelId);
+                    channel ??= await Launcher.Instance.GetChannel<IChannel>(Server.Config.TwitchSettings.TwitchMessageChannelId);
 
-                    RuntimeResult addResult = await _Server.TwitchLivestreamIntervalActionHandler.TryAddAction(Context, name, commandsToExecute, channel);
+                    RuntimeResult addResult = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().TryAddAction(Context, name, commandsToExecute, channel);
 
                     if (addResult.IsSuccess)
                     {
@@ -707,7 +708,7 @@ namespace GeistDesWaldes.Modules
                 public async Task<RuntimeResult> RemoveIntervalAction(string name)
                 {
                     name = name.ToLower();
-                    RuntimeResult result = await _Server.TwitchLivestreamIntervalActionHandler.TryRemoveAction(name);
+                    RuntimeResult result = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().TryRemoveAction(name);
 
                     if (result.IsSuccess)
                     {
@@ -732,7 +733,7 @@ namespace GeistDesWaldes.Modules
                 {
                     if (string.IsNullOrWhiteSpace(name))
                     {
-                        CustomCommand[] result = _Server.TwitchLivestreamIntervalActionHandler.GetAllActions();
+                        CustomCommand[] result = Server.GetModule<TwitchLivestreamIntervalActionHandler>().GetAllActions();
 
                         string body = "-";
 
@@ -760,7 +761,7 @@ namespace GeistDesWaldes.Modules
                     }
                     else
                     {
-                        CustomRuntimeResult<CustomCommand> result = await _Server.TwitchLivestreamIntervalActionHandler.TryGetAction(name);
+                        CustomRuntimeResult<CustomCommand> result = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().TryGetAction(name);
 
                         if (result.IsSuccess)
                         {
@@ -781,7 +782,7 @@ namespace GeistDesWaldes.Modules
                 [Summary("Randomizes action order.")]
                 public async Task<RuntimeResult> ShuffleActions()
                 {
-                    RuntimeResult result = await _Server.TwitchLivestreamIntervalActionHandler.ShuffleActions();
+                    RuntimeResult result = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().ShuffleActions();
 
                     if (result.IsSuccess)
                     {
@@ -802,7 +803,7 @@ namespace GeistDesWaldes.Modules
                 [Summary("Sorts action order by name.")]
                 public async Task<RuntimeResult> SortActionsByName()
                 {
-                    RuntimeResult result = await _Server.TwitchLivestreamIntervalActionHandler.SortActionsByName();
+                    RuntimeResult result = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().SortActionsByName();
 
                     if (result.IsSuccess)
                     {

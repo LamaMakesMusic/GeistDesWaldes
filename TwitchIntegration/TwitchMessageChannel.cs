@@ -90,7 +90,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 if (twitchIdHash == (ulong)runConfig.ChannelOwner.Id.GetHashCode())
                     return new TwitchUser(runConfig.ChannelOwner.Id, runConfig.ChannelOwner.Login);
 
-                var response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
+                var response = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
 
                 foreach (var user in response.Users)
                 {
@@ -110,7 +110,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 new TwitchUser(runConfig.ChannelOwner.Id, runConfig.ChannelOwner.Login)
             ];
 
-            GetUsersResponse response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
+            GetUsersResponse response = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(Name)));
 
             foreach (User user in response.Users)
             {

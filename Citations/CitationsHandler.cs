@@ -22,29 +22,29 @@ namespace GeistDesWaldes.Citations
 
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCitationsHandler().SafeAsync<CitationsHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();;
+            await InitializeCitationsHandler();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
+            await base.OnCheckIntegrity();
 
-            CheckIntegrity().SafeAsync<CitationsHandler>(_Server.LogHandler);
+            await CheckIntegrity();
         }
 
         private async Task InitializeCitationsHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, Quotes);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, Quotes);
 
             await LoadQuotesFromFile();
         }
         private async Task CheckIntegrity(bool skipFix = false)
         {
             bool cleanupIDs = false;
-            List<(int idx, string error)> problematicEntries = new List<(int idx, string error)>();
+            List<(int idx, string error)> problematicEntries = [];
 
             for (int i = 0; i < Quotes.Count; i++)
             {
@@ -57,7 +57,7 @@ namespace GeistDesWaldes.Citations
                     if (Quotes[i].ID < 0)
                         entry = (i, $"ID ({Quotes[i].ID}) < 0");
 
-                    if (Quotes.Find(q => q.ID == Quotes[i].ID && Quotes[i] != q) is Citation match)
+                    if (Quotes.Find(q => q.ID == Quotes[i].ID && Quotes[i] != q) is { } match)
                     {
                         if (entry == default)
                             entry = (i, $"Duplicate IDs ({Quotes[i].ID})!");
@@ -76,7 +76,7 @@ namespace GeistDesWaldes.Citations
 
             if (cleanupIDs && !skipFix)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), "Attempting Clean Up..."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), "Attempting Clean Up..."));
 
                 ResetIDs();
 
@@ -85,15 +85,15 @@ namespace GeistDesWaldes.Citations
 
             if (problematicEntries.Count > 0)
             {
-                var builder = new StringBuilder("Citations ERROR:\n");
+                StringBuilder builder = new("Citations ERROR:\n");
 
                 for (int i = 0; i < problematicEntries.Count; i++)
                     builder.AppendLine($"...[{problematicEntries[i].idx}] | {problematicEntries[i].error}");
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Citations OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Citations OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
@@ -104,14 +104,14 @@ namespace GeistDesWaldes.Citations
                 return q1.ID.CompareTo(q2.ID);
             });
 
-            return GenericXmlSerializer.SaveAsync<List<Citation>>(_Server.LogHandler, Quotes, CITATIONS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<Citation>>(Server.LogHandler, Quotes, CITATIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadQuotesFromFile()
         {
-            List<Citation> loadedQuotes = await GenericXmlSerializer.LoadAsync<List<Citation>>(_Server.LogHandler, CITATIONS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            List<Citation> loadedQuotes = await GenericXmlSerializer.LoadAsync<List<Citation>>(Server.LogHandler, CITATIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
             if (loadedQuotes == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadQuotesFromFile), $"Loaded {nameof(loadedQuotes)} == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadQuotesFromFile), $"Loaded {nameof(loadedQuotes)} == DEFAULT"));
             else
                 Quotes = loadedQuotes;
         }

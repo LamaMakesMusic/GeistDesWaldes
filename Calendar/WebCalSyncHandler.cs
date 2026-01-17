@@ -23,15 +23,16 @@ namespace GeistDesWaldes.Calendar
 
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
+            await base.OnServerStartUp();
+        
             StartSyncLoop();
         }
-        internal override void OnServerShutdown(object source, EventArgs e)
+        
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
+            await base.OnServerShutdown();
 
             _cancelSyncLoopSource?.Cancel();
         }
@@ -47,7 +48,7 @@ namespace GeistDesWaldes.Calendar
             _cancelSyncLoopSource = new CancellationTokenSource();
 
             await Task.Delay(1000);
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(SyncLoop), "Started."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(SyncLoop), "Started."));
 
             while (!_cancelSyncLoopSource.IsCancellationRequested)
             {
@@ -61,20 +62,20 @@ namespace GeistDesWaldes.Calendar
                     if (e is TaskCanceledException)
                         break;
 
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SyncLoop), string.Empty, e));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SyncLoop), string.Empty, e));
                 }
             }
 
             _syncLoopTask = null;
             _cancelSyncLoopSource = null;
 
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(SyncLoop), "Stopped."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(SyncLoop), "Stopped."));
         }
 
         public async Task SyncCalendarToDiscordChannel()
         {
-            ITextChannel syncChannel = _Server.RuntimeConfig.WebCalSyncDiscordChannel;
-            string webCalLink = _Server.Config.TwitchSettings.WebCalLink;
+            ITextChannel syncChannel = Server.RuntimeConfig.WebCalSyncDiscordChannel;
+            string webCalLink = Server.Config.TwitchSettings.WebCalLink;
 
             if (syncChannel == null || webCalLink == null)
                 return;
@@ -83,14 +84,14 @@ namespace GeistDesWaldes.Calendar
 
             if (webString == null)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SyncLoop), $"Downloaded Calendar is null. Source: '{webCalLink}'"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SyncLoop), $"Downloaded Calendar is null. Source: '{webCalLink}'"));
                 return;
             }
 
             Icalendar calendar = Icalendar.Load(webString);
 
             string calendarString = CreateCalendarString(calendar);
-            await UpdateChannelTopic(syncChannel, _Server.GuildId, calendarString);
+            await UpdateChannelTopic(syncChannel, Server.GuildId, calendarString);
         }
 
 
@@ -99,7 +100,7 @@ namespace GeistDesWaldes.Calendar
             DateTime start = DateTime.Today;
             DateTime end = DateTime.Today.AddDays(7);
             
-            StringBuilder builder = new($"\n**{start.ToString("dd.MM.", _Server.CultureInfo)} - {end.ToString("dd.MM.", _Server.CultureInfo)}**\n");
+            StringBuilder builder = new($"\n**{start.ToString("dd.MM.", Server.CultureInfo)} - {end.ToString("dd.MM.", Server.CultureInfo)}**\n");
 
             List<CalendarItem> evts = GetEvents(calendar, start, end);
 
@@ -111,7 +112,7 @@ namespace GeistDesWaldes.Calendar
             {
                 foreach (CalendarItem ev in evts)
                 {
-                    string startString = ev.Start.ToString("dddd, dd.MM. HH:mm", _Server.CultureInfo);
+                    string startString = ev.Start.ToString("dddd, dd.MM. HH:mm", Server.CultureInfo);
                     string description = ev.Description != null ? ev.Description.Trim(' ').Trim('.') : "??";
 
                     builder.AppendLine($"{startString} - {description} - {ev.Summary}");
@@ -157,9 +158,9 @@ namespace GeistDesWaldes.Calendar
                 newTopic = newTopic.Remove(openIndex, closeIndex - openIndex);
                 newTopic = newTopic.Insert(openIndex, text);
 
-                await channel.ModifyAsync(channel =>
+                await channel.ModifyAsync(c =>
                 {
-                    channel.Topic = newTopic;
+                    c.Topic = newTopic;
                 });
             }
         }

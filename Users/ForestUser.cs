@@ -1,8 +1,8 @@
-﻿using Discord.Commands;
+﻿using System;
+using System.Xml.Serialization;
+using Discord.Commands;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Configuration;
-using System;
-using System.Xml.Serialization;
 using DiscordUser = Discord.Rest.RestUser;
 using TwitchUser = TwitchLib.Api.Helix.Models.Users.GetUsers.User;
 

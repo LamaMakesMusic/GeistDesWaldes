@@ -1,10 +1,15 @@
-﻿using Discord;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Threading.Tasks;
+using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Audio;
 using GeistDesWaldes.Calendar;
-using GeistDesWaldes.Citations;
 using GeistDesWaldes.CommandMeta;
 using GeistDesWaldes.Communication;
 using GeistDesWaldes.Configuration;
@@ -22,11 +27,6 @@ using GeistDesWaldes.UserCommands;
 using GeistDesWaldes.Users;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Globalization;
-using System.IO;
-using System.Reflection;
-using System.Threading.Tasks;
 using TwitchLib.EventSub.Websockets;
 using TwitchLib.EventSub.Websockets.Extensions;
 
@@ -41,39 +41,27 @@ namespace GeistDesWaldes
         public RuntimeConfiguration RuntimeConfig => ConfigurationHandler.RuntimeConfig[GuildId];
 
         public CultureInfo CultureInfo => ConfigurationHandler.RuntimeConfig[GuildId].CultureInfo;
+        
+        public IServiceProvider Services { get; }
+        private readonly List<IServerModule> _modules = [];
 
+        private readonly Dictionary<Type, IServerModule> _moduleQuickAccess = new();
+
+        
         public readonly DiscordSocketClient DiscordClient;
         public readonly CommandService CommandService;
         public readonly LogHandler LogHandler;
 
-        public readonly AudioHandler AudioHandler;
-        public readonly BirthdayHandler BirthdayHandler;
-        public readonly CitationsHandler CitationsHandler;
-        public readonly CommandCooldownHandler CommandCooldownHandler;
-        public readonly CommandInfoHandler CommandInfoHandler;
-        public readonly CommandStatisticsHandler CommandStatisticsHandler;
-        public readonly CounterHandler CounterHandler;
-        public readonly CurrencyHandler CurrencyHandler;
-        public readonly CustomCommandHandler CustomCommandHandler;
-        public readonly ForestUserHandler ForestUserHandler;
-        public readonly FlickrHandler FlickrHandler;
-        public readonly HolidayHandler HolidayHandler;
-        public readonly LayoutTemplateHandler LayoutTemplateHandler;
-        public readonly PollHandler PollHandler;
-        public readonly ScheduleHandler ScheduleHandler;
-        public readonly TwitchLivestreamIntervalActionHandler TwitchLivestreamIntervalActionHandler;
-        public readonly UserCallbackHandler UserCallbackHandler;
-        public readonly UserCooldownHandler UserCooldownHandler;
-        public readonly WebCalSyncHandler WebCalSyncHandler;
-
         public readonly string ServerFilesDirectoryPath;
-        
-        public event EventHandler OnServerStart;
-        public event EventHandler OnCheckIntegrity;
-        public event EventHandler OnServerShutdown;
 
-        private readonly IServiceProvider _services;
-        public IServiceProvider Services => _services;
+        private UserCallbackHandler UserCallbackHandler => Services.GetService<UserCallbackHandler>();
+        private ForestUserHandler ForestUserHandler => Services.GetService<ForestUserHandler>();
+        private UserCooldownHandler UserCooldownHandler => Services.GetService<UserCooldownHandler>();
+        private PollHandler PollHandler => Services.GetService<PollHandler>();
+        private CommandCooldownHandler CommandCooldownHandler => Services.GetService<CommandCooldownHandler>();
+        private CurrencyHandler CurrencyHandler => Services.GetService<CurrencyHandler>();
+        private CommandStatisticsHandler CommandStatisticsHandler => Services.GetService<CommandStatisticsHandler>();
+        
 
         public Server(ulong guildId, DiscordSocketClient client)
         {
@@ -82,10 +70,41 @@ namespace GeistDesWaldes
             ServerFilesDirectoryPath = Path.GetFullPath(Path.Combine(ConfigurationHandler.ServerFilesDirectory, GuildId.ToString()));
 
             LogHandler = new LogHandler(this);
-            Launcher.OnShutdown += OnShutdown;
 
-            _services = new ServiceCollection().AddSingleton<ILogger<EventSubWebsocketClient>>(LogHandler).AddSingleton(this).AddSingleton(LogHandler).AddTwitchLibEventSubWebsockets().BuildServiceProvider();
+            Services = new ServiceCollection()
+                .AddSingleton(this)
+                .AddSingleton(LogHandler)
+                .AddSingleton<ILogger<EventSubWebsocketClient>>(LogHandler)
+                .AddTwitchLibEventSubWebsockets()
+                .AddSingleton<ForestUserHandler>()
+                .AddSingleton<CustomCommandHandler>()
+                .AddSingleton<CommandCooldownHandler>()
+                .AddSingleton<FlickrHandler>()
+                .AddSingleton<UserCooldownHandler>()
+                .AddSingleton<WebCalSyncHandler>()
+                .AddSingleton<CounterHandler>()
+                .AddSingleton<AudioHandler>()
+                .AddSingleton<CounterHandler>()
+                .AddSingleton<CurrencyHandler>()
+                .AddSingleton<BirthdayHandler>()
+                .AddSingleton<HolidayHandler>()
+                .AddSingleton<LayoutTemplateHandler>()
+                .AddSingleton<PollHandler>()
+                .AddSingleton<ScheduleHandler>()
+                .AddSingleton<UserCallbackHandler>()
+                .AddSingleton<TwitchLivestreamIntervalActionHandler>()
+                .AddSingleton<CommandInfoHandler>()
+                .AddSingleton<CommandStatisticsHandler>()
+            .BuildServiceProvider();
+            
+            _modules.AddRange(Services.GetServices<IServerModule>());
+            _modules.Sort((m1, m2) => m1.Priority.CompareTo(m2));
 
+            foreach (IServerModule m in _modules)
+            {
+                _moduleQuickAccess.Add(m.GetType(), m);
+            }
+            
             ConfigurationHandler.EnsureServerConfig(GuildId);
 
             // Command Service
@@ -113,33 +132,9 @@ namespace GeistDesWaldes
             CommandService.AddTypeReader<string[]>(new ArrayReader());
             CommandService.AddTypeReader<IndexValuePair>(new IndexValuePairReader());
             CommandService.AddTypeReader<IndexValuePair[]>(new IndexValuePairArrayReader());
-
-            ForestUserHandler = new(this);
-            
-            CustomCommandHandler = new(this);
-            CommandCooldownHandler = new(this);
-            FlickrHandler = new(this);
-            UserCooldownHandler = new(this);
-            WebCalSyncHandler = new(this);
-            CounterHandler = new(this);
-            AudioHandler = new(this);
-            CitationsHandler = new(this);
-            CurrencyHandler = new(this);
-            
-            BirthdayHandler = new(this);
-            HolidayHandler = new(this);
-            LayoutTemplateHandler = new(this);
-            PollHandler = new(this);
-            ScheduleHandler = new(this);
-            UserCallbackHandler = new(this);
-
-            TwitchLivestreamIntervalActionHandler = new(this);
-            
-            CommandInfoHandler = new(this);
-
-            CommandStatisticsHandler = new(this);
         }
 
+        
         public async Task Start()
         {
             try
@@ -147,16 +142,23 @@ namespace GeistDesWaldes
                 await GenericXmlSerializer.EnsurePathExistance(LogHandler, ServerFilesDirectoryPath, ConfigurationHandler.SERVER_CONFIG_FILE_NAME, Config);
                 await ConfigurationHandler.LoadServerConfigFromFile(GuildId);
 
-                await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+                await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services);
 
-                OnServerStart?.Invoke(this, EventArgs.Empty);
+                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Start), $"==== {nameof(IServerModule.OnServerStartUp)} ===="));
+                foreach (IServerModule module in _modules)
+                {
+                    await module.OnServerStartUp();
+                }
 
                 await Task.Delay(3000);
 
-                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Start), $"==== {nameof(OnCheckIntegrity)} ===="));
-                OnCheckIntegrity?.Invoke(this, EventArgs.Empty);
+                await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Start), $"==== {nameof(IServerModule.OnCheckIntegrity)} ===="));
+                foreach (IServerModule module in _modules)
+                {
+                    await module.OnCheckIntegrity();
+                }
 
-                await Task.Delay(4000);
+                await Task.Delay(3000);
 
                 await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Start), $"==== {nameof(TwitchIntegrationHandler.StartListening)} ===="));
                 await TwitchIntegrationHandler.Instance.StartListening(this);
@@ -172,13 +174,27 @@ namespace GeistDesWaldes
                 await LogHandler.Log(new LogMessage(LogSeverity.Critical, nameof(Start), "Failed!", ex));
             }
         }
-        public void OnShutdown(object sender, EventArgs args)
+        
+        public async Task Stop()
         {
+            await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Stop), $"==== {nameof(TwitchIntegrationHandler.StopListening)} ===="));
             TwitchIntegrationHandler.Instance.StopListening(this);
+            
+            await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Stop), $"==== {nameof(IServerModule.OnServerShutdown)} ===="));
+            
+            for (int i = _modules.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    await _modules[i].OnServerShutdown();
+                }
+                catch (Exception e)
+                {
+                    await LogHandler.Log(new LogMessage(LogSeverity.Critical, nameof(Stop), "Exception in Module Shutdown!", e));
+                }
+            }
 
-            OnServerShutdown?.Invoke(this, EventArgs.Empty);
-
-            LogHandler.SaveToLogFile(ServerFilesDirectoryPath);
+            await LogHandler.SaveToLogFile(ServerFilesDirectoryPath);
         }
 
 
@@ -188,6 +204,18 @@ namespace GeistDesWaldes
                 await callback.Execute(null, [DateTime.Now.ToString(CultureInfo)]);
         }
 
+
+        public T GetModule<T>() where T : IServerModule
+        {
+            Type t = typeof(T);
+            
+            if (_moduleQuickAccess.TryGetValue(t, out IServerModule value))
+                return (T)value;
+
+            LogHandler.Log(new LogMessage(LogSeverity.Critical, nameof(GetModule), $"Could not find module of type '{t.Name}'!"));
+            return default(T);
+        }
+        
 
         public async Task HandleCommandAsync(IUserMessage message)
         {
@@ -215,7 +243,7 @@ namespace GeistDesWaldes
                 await UserCooldownHandler.AddToCooldown(message.Author);
 
                 // Create a Command Context.
-                CommandContext context = null;
+                CommandContext context;
 
                 if (discordMessage != null)
                     context = new CommandContext(DiscordClient, discordMessage);
@@ -228,7 +256,7 @@ namespace GeistDesWaldes
             // Is Poll Vote
             else if (await PollHandler.GetChannelPollCount(message.Channel.Id) > 0 && message.HasCharPrefix(Config.GeneralSettings.PollVotePrefix, ref prefixPosition))
             {
-                var voteResult = await PollHandler.TryVote(message, prefixPosition);
+                PollHandler.VoteEvaluationResult voteResult = await PollHandler.TryVote(message, prefixPosition);
 
                 await LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(HandleCommandAsync), $"Vote Result: {voteResult}"));
 
@@ -261,7 +289,7 @@ namespace GeistDesWaldes
         {
             await LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(ExecuteCommand), $"Executing Command: {context.Message.Content.Substring(prefixPosition)}"));
 
-            await CommandService.ExecuteAsync(context, prefixPosition, _services);
+            await CommandService.ExecuteAsync(context, prefixPosition, Services);
         }
 
         public async Task OnCommandExecutedAsync(Optional<CommandInfo> command, ICommandContext context, IResult result)
@@ -270,9 +298,9 @@ namespace GeistDesWaldes
             
             await LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(OnCommandExecutedAsync), $"{user?.Name} ({user?.ForestUserId}) executed '{command.GetFullCommandName()}'."));
 
-            await RecordCommandForStatistics(command, context, result);
+            await RecordCommandForStatistics(command, context);
 
-            if (context?.Message is MetaCommandMessage metaMessage && metaMessage.BundleCallback != null)
+            if (context.Message is MetaCommandMessage { BundleCallback: not null } metaMessage)
             {
                 metaMessage.BundleCallback?.SetCompleted();
             }
@@ -284,11 +312,11 @@ namespace GeistDesWaldes
                     if (command.Value == null)
                         continue;
 
-                    if (command.Value.Preconditions[i] is CommandCooldown coco && coco != null)
+                    if (command.Value.Preconditions[i] is CommandCooldown coco)
                         await CommandCooldownHandler.AddToCooldown(command.Value, coco.CooldownInSeconds);
-                    else if (command.Value.Preconditions[i] is CommandFee cofe && cofe != null)
+                    else if (command.Value.Preconditions[i] is CommandFee cofe)
                     {
-                        var currencyResult = await CurrencyHandler.AddCurrencyToUser(context.User, -cofe.PriceTag);
+                        CustomRuntimeResult currencyResult = await CurrencyHandler.AddCurrencyToUser(context.User, -cofe.PriceTag);
 
                         if (!currencyResult.IsSuccess)
                             await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(OnCommandExecutedAsync), $"Could not enforce {nameof(CommandFee)} on '{user?.Name}'! \n{currencyResult.Reason}"));
@@ -298,7 +326,7 @@ namespace GeistDesWaldes
             else
             {
                 bool allowOnTwitch = false;
-                string resultError = result.Error.ToString();
+                string resultError = result.Error.ToString() ?? string.Empty;
 
                 if (resultError.Equals("UnmetPrecondition"))
                 {
@@ -363,7 +391,7 @@ namespace GeistDesWaldes
             }
         }
 
-        private async Task RecordCommandForStatistics(Optional<CommandInfo> command, ICommandContext context, IResult result)
+        private async Task RecordCommandForStatistics(Optional<CommandInfo> command, ICommandContext context)
         {
             if (!command.IsSpecified || context == null || context.User.IsBot || context.Message is MetaCommandMessage)
                 return;

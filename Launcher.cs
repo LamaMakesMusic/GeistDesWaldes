@@ -11,11 +11,10 @@ namespace GeistDesWaldes
     {
         public static readonly Random Random = new();
 
-        public static event EventHandler OnShutdown;
         public static Program Instance { get; private set; }
 
-        private static bool _requestedShutdown = false;
-        private static bool _isRestart = false;
+        private static bool _requestedShutdown;
+        private static bool _isRestart;
 
         private static int _restartDelayInSeconds = -1;
 
@@ -37,7 +36,7 @@ namespace GeistDesWaldes
         public static async Task Main(string[] args)
         {
             BaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            ExecutingAssemblyName = Assembly.GetExecutingAssembly()?.FullName;
+            ExecutingAssemblyName = Assembly.GetExecutingAssembly().FullName;
             
             ApplicationFilesPath = Path.GetFullPath(Path.Combine(BaseDirectory, "..", "GdW-Files"));
             await GenericXmlSerializer.EnsurePathExistance<object>(null, ApplicationFilesPath);
@@ -64,9 +63,9 @@ namespace GeistDesWaldes
                 await Instance.StartUp();
 
                 // Wait for shutdown
-                while (_requestedShutdown == false)
+                while (!_requestedShutdown)
                 {
-                    if (ConfigurationHandler.Shared.DailyRestartTime == default)
+                    if (ConfigurationHandler.Shared.DailyRestartTime == TimeSpan.Zero)
                     {
                         await Task.Delay(TimeSpan.FromMinutes(1));
                     }
@@ -77,8 +76,7 @@ namespace GeistDesWaldes
                     }
                 }
 
-                // Invoke shutdown callbacks
-                OnShutdown?.Invoke(Instance, EventArgs.Empty);
+                await Instance.Shutdown();
 
                 // Shutdown grace period
                 await ScreenTimer("Waiting some more time for processes to cancel... proceeding", 10);
@@ -98,18 +96,22 @@ namespace GeistDesWaldes
             if (args == null)
                 return;
 
-            for (int i = 0; i < args.Length; i++)
+            foreach (string a in args)
             {
-                if (args[i].Equals(CONSOLE_OUTPUT_ONLY_ID, StringComparison.OrdinalIgnoreCase))
+                if (a.Equals(CONSOLE_OUTPUT_ONLY_ID, StringComparison.OrdinalIgnoreCase))
+                {
                     ConsoleOutputOnly = true;
-                else if (args[i].IndexOf(LOG_LEVEL_ID, StringComparison.OrdinalIgnoreCase) is int idx && idx > -1)
-                    int.TryParse(args[i].Remove(idx, LOG_LEVEL_ID.Length), out LogLevel);
+                }
+                else if (a.IndexOf(LOG_LEVEL_ID, StringComparison.OrdinalIgnoreCase) is { } idx and > -1)
+                {
+                    if (int.TryParse(a.Remove(idx, LOG_LEVEL_ID.Length), out int logLevel))
+                        LogLevel = logLevel;
+                }
             }
         }
 
         private static void Reset()
         {
-            OnShutdown = null;
             Instance = null;
             
             _requestedShutdown = false;
@@ -158,8 +160,7 @@ namespace GeistDesWaldes
         //}
 
 
-
-        public static void RequestShutdown(bool restart = false, int restartDelay = -1)
+        private static void RequestShutdown(bool restart = false, int restartDelay = -1)
         {
             _isRestart = restart;
             _requestedShutdown = true;

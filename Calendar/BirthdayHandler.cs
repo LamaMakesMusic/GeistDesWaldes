@@ -6,8 +6,10 @@ using GeistDesWaldes.UserCommands;
 using GeistDesWaldes.Users;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Discord.Rest;
 
 namespace GeistDesWaldes.Calendar
 {
@@ -15,65 +17,67 @@ namespace GeistDesWaldes.Calendar
     {
         public BirthdayDictionary BirthdayDictionary;
 
-        private Task _birthdayWatchdog = null;
+        private Task _birthdayWatchdog;
         private CancellationTokenSource _cancelWatchdogSource;
 
         private const string BIRTHDAYS_FILE_NAME = "Birthdays";
 
+        private readonly ForestUserHandler _forestUserHandler;
 
-        public BirthdayHandler(Server server) : base(server)
+
+        public BirthdayHandler(Server server, ForestUserHandler userHandler) : base(server)
         {
+            _forestUserHandler = userHandler;
             BirthdayDictionary = new BirthdayDictionary(server);
         }
         
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
+            await base.OnServerStartUp();
 
-            InitializeBirthdayHandler().SafeAsync<BirthdayHandler>(_Server.LogHandler, StartBirthdayWatchdog);
+            await InitializeBirthdayHandler();
+            StartBirthdayWatchdog();
         }
-        internal override void OnServerShutdown(object source, EventArgs e)
+        
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
-
+            await base.OnServerShutdown();
             _cancelWatchdogSource?.Cancel();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<BirthdayHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
 
         private async Task InitializeBirthdayHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, BIRTHDAYS_FILE_NAME, BirthdayDictionary);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, BIRTHDAYS_FILE_NAME, BirthdayDictionary);
 
             await LoadBirthdaysFromFile();
         }
         private async Task CheckIntegrity()
         {
-            List<string> problematicEntries = new List<string>();
+            List<string> problematicEntries = new();
 
-            var builder = new System.Text.StringBuilder("...Callbacks:");
+            StringBuilder builder = new("...Callbacks:");
             int startLength = builder.Length;
 
             for (int i = 0; i < 2; i++)
             {
                 CustomCommand command = (i == 0 ? BirthdayDictionary.StartCallback : BirthdayDictionary.EndCallback);
 
-                var subBuilder = new System.Text.StringBuilder($"......[{i} -> {command.Name}]");
+                StringBuilder subBuilder = new($"......[{i} -> {command.Name}]");
                 int subLength = subBuilder.Length;
 
-                if (command == null)
-                    subBuilder.Append(" | NULL");
-                else if (command.CommandsToExecute != null && command.CommandsToExecute.Length > 0)
+                if (command.CommandsToExecute is { Length: > 0 })
                 {
                     if (string.IsNullOrWhiteSpace(command.Name))
                         subBuilder.Append(" | missing name");
 
-                    var testResult = await command.TestCommandExecution(_Server.CommandService, _Server.Services);
+                    CustomRuntimeResult testResult = await command.TestCommandExecution(Server.CommandService, Server.Services);
 
                     if (!testResult.IsSuccess)
                         subBuilder.Append(" | Commands ERROR:\n").AppendLine($".........{testResult.Reason}");
@@ -97,15 +101,15 @@ namespace GeistDesWaldes.Calendar
 
             if (problematicEntries.Count > 0)
             {
-                var bbuilder = new System.Text.StringBuilder("Birthdays ERROR:\n");
+                StringBuilder bbuilder = new("Birthdays ERROR:\n");
 
                 for (int i = 0; i < problematicEntries.Count; i++)
                     bbuilder.AppendLine(problematicEntries[i]);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Birthdays OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Birthdays OK."), (int)ConsoleColor.DarkGreen);
         }
         
         private void StartBirthdayWatchdog()
@@ -119,7 +123,7 @@ namespace GeistDesWaldes.Calendar
         {
             _cancelWatchdogSource = new CancellationTokenSource();
 
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(BirthdayWatchdog), "Started."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(BirthdayWatchdog), "Started."));
 
             try
             {
@@ -128,7 +132,7 @@ namespace GeistDesWaldes.Calendar
                     // I.a. deactivate active birthdays
                     if (BirthdayDictionary.ActiveBirthdays != null && BirthdayDictionary.ActiveBirthdays.Count > 0)
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(BirthdayWatchdog), $"{BirthdayDictionary.ActiveBirthdays.Count} already active birthdays!"), (int)ConsoleColor.Blue);
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(BirthdayWatchdog), $"{BirthdayDictionary.ActiveBirthdays.Count} already active birthdays!"), (int)ConsoleColor.Blue);
 
                         for (int i = BirthdayDictionary.ActiveBirthdays.Count-1; i >= 0; i--)
                         {
@@ -146,7 +150,7 @@ namespace GeistDesWaldes.Calendar
                             }
                             catch (Exception e)
                             {
-                                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(BirthdayWatchdog), "Could not end active birthday!", e));
+                                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(BirthdayWatchdog), "Could not end active birthday!", e));
                             }
                         }
                     }
@@ -156,15 +160,17 @@ namespace GeistDesWaldes.Calendar
                     Birthday[] birthdays = await GetBirthdays(DateTime.Today);
                     if (birthdays != null)
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(BirthdayWatchdog), $"Daily Watchdog found {birthdays.Length} birthdays!"), (int)ConsoleColor.Blue);
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(BirthdayWatchdog), $"Daily Watchdog found {birthdays.Length} birthdays!"), (int)ConsoleColor.Blue);
 
+                        BirthdayDictionary.ActiveBirthdays ??= [];
+                        
                         foreach (Birthday bday in birthdays)
                         {
                             try
                             {
                                 if (BirthdayDictionary.ActiveBirthdays.Exists((b) => b.UserId == bday.UserId))
                                 {
-                                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(BirthdayWatchdog), $"Skipping active birthday for user '{bday.UserId}'!"));
+                                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(BirthdayWatchdog), $"Skipping active birthday for user '{bday.UserId}'!"));
                                     continue;
                                 }
 
@@ -174,7 +180,7 @@ namespace GeistDesWaldes.Calendar
                             }
                             catch (Exception e)
                             {
-                                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(BirthdayWatchdog), "Could not start birthday!", e));
+                                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(BirthdayWatchdog), "Could not start birthday!", e));
                             }
                         }
                     }
@@ -187,7 +193,7 @@ namespace GeistDesWaldes.Calendar
                     DateTime morning = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 1).AddDays(1);
                     TimeSpan difference = morning.Subtract(DateTime.Now);
 
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(BirthdayWatchdog), $"Daily Watchdog called. Next call in: {difference}"), (int)ConsoleColor.Blue);
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(BirthdayWatchdog), $"Daily Watchdog called. Next call in: {difference}"), (int)ConsoleColor.Blue);
 
 
                     await Task.Delay(difference, _cancelWatchdogSource.Token);
@@ -202,28 +208,30 @@ namespace GeistDesWaldes.Calendar
                 _birthdayWatchdog = null;
                 _cancelWatchdogSource = null;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(BirthdayWatchdog), "Stopped."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(BirthdayWatchdog), "Stopped."));
             }
         }
         private async Task InvokeBirthdayBehaviour(Birthday birthday, HolidayBehaviour.BehaviourAction actionType)
         {
-            var getUserResult = await _Server.ForestUserHandler.GetUser(birthday.UserId);
+            CustomRuntimeResult<ForestUser> getUserResult = await _forestUserHandler.GetUser(birthday.UserId);
 
-            if (getUserResult.IsSuccess && getUserResult.ResultValue is ForestUser fUser)
+            if (getUserResult.IsSuccess && getUserResult.ResultValue is { } fUser)
             {
-                var restUser = await Launcher.Instance.DiscordClient.Rest.GetUserAsync(fUser.DiscordUserId);
+                RestUser restUser = await Launcher.Instance.DiscordClient.Rest.GetUserAsync(fUser.DiscordUserId);
                 if (restUser != null)
                 {
                     if (actionType == HolidayBehaviour.BehaviourAction.StartCallback)
-                        await BirthdayDictionary.StartCallback.Execute(null, new string[] { restUser.Mention, getUserResult.ResultValue.Name });
+                        await BirthdayDictionary.StartCallback.Execute(null, [restUser.Mention, getUserResult.ResultValue.Name
+                        ]);
                     else
-                        await BirthdayDictionary.EndCallback.Execute(null, new string[] { restUser.Mention, getUserResult.ResultValue.Name });
+                        await BirthdayDictionary.EndCallback.Execute(null, [restUser.Mention, getUserResult.ResultValue.Name
+                        ]);
                 }
                 else
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(InvokeBirthdayBehaviour), $"Could not find discord user for '{fUser.Name}' ({fUser.DiscordUserId})!"));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(InvokeBirthdayBehaviour), $"Could not find discord user for '{fUser.Name}' ({fUser.DiscordUserId})!"));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(InvokeBirthdayBehaviour), getUserResult.Error.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(InvokeBirthdayBehaviour), getUserResult.Error.ToString()));
         }
 
         private async Task UpdateBirthdayInfo()
@@ -232,23 +240,18 @@ namespace GeistDesWaldes.Calendar
                 return;
 
             bool changed = false;
-
-            var toRemove = new List<ForestUser>();
-
+            
             for (int i = BirthdayDictionary.Birthdays.Count - 1; i >= 0; i--)
             {
-                var getUserResult = await _Server.ForestUserHandler.GetUser(BirthdayDictionary.Birthdays[i].UserId);
+                CustomRuntimeResult<ForestUser> getUserResult = await _forestUserHandler.GetUser(BirthdayDictionary.Birthdays[i].UserId);
                 if (getUserResult.IsSuccess)
                     continue;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateBirthdayInfo), getUserResult.Reason.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateBirthdayInfo), getUserResult.Reason));
                 BirthdayDictionary.Birthdays.RemoveAt(i);
 
                 changed = true;
             }
-
-            for (int i = 0; i < toRemove.Count; i++)
-                await RemoveBirthday(toRemove[i]);
 
             if (changed)
                 await SaveBirthdaysToFile();
@@ -321,7 +324,7 @@ namespace GeistDesWaldes.Calendar
 
             Birthday result = BirthdayDictionary.Birthdays.Find(b => b.UserId == userId);
 
-            if (result != default)
+            if (result != null)
                 return CustomRuntimeResult<Birthday>.FromSuccess(value: result);
 
             return CustomRuntimeResult<Birthday>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X, "{x}", userId.ToString()));
@@ -337,7 +340,7 @@ namespace GeistDesWaldes.Calendar
         }
         public async Task<CustomRuntimeResult> RemoveBirthday(ForestUser user)
         {
-            var result = await GetBirthday(user.ForestUserId);
+            CustomRuntimeResult<Birthday> result = await GetBirthday(user.ForestUserId);
 
             if (result.IsSuccess)
                 BirthdayDictionary.Birthdays.Remove(result.ResultValue);
@@ -350,28 +353,28 @@ namespace GeistDesWaldes.Calendar
         {
             BirthdayDictionary.Birthdays.Sort((b1, b2) =>
             {
-                var d1 = new DateTime(1, b1.BirthDate.Month, b1.BirthDate.Day);
-                var d2 = new DateTime(1, b2.BirthDate.Month, b2.BirthDate.Day);
+                DateTime d1 = new(1, b1.BirthDate.Month, b1.BirthDate.Day);
+                DateTime d2 = new(1, b2.BirthDate.Month, b2.BirthDate.Day);
 
                 return d1.CompareTo(d2);
             });
 
-            return GenericXmlSerializer.SaveAsync<BirthdayDictionary>(_Server.LogHandler, BirthdayDictionary, BIRTHDAYS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<BirthdayDictionary>(Server.LogHandler, BirthdayDictionary, BIRTHDAYS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadBirthdaysFromFile()
         {
-            BirthdayDictionary loadedDictionary = await GenericXmlSerializer.LoadAsync<BirthdayDictionary>(_Server.LogHandler, BIRTHDAYS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            BirthdayDictionary loadedDictionary = await GenericXmlSerializer.LoadAsync<BirthdayDictionary>(Server.LogHandler, BIRTHDAYS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            if (loadedDictionary == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadBirthdaysFromFile), $"Loaded {nameof(loadedDictionary)} == DEFAULT"));
+            if (loadedDictionary == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadBirthdaysFromFile), $"Loaded {nameof(loadedDictionary)} == DEFAULT"));
             else
                 BirthdayDictionary = loadedDictionary;
 
             BirthdayDictionary.Birthdays.Sort((b1, b2) => b1.BirthDate.CompareTo(b2.BirthDate));
 
             // Ensure correct form
-            BirthdayDictionary.StartCallback?.InitAfterLoadFromFile(_Server);
-            BirthdayDictionary.EndCallback?.InitAfterLoadFromFile(_Server);
+            BirthdayDictionary.StartCallback?.InitAfterLoadFromFile(Server);
+            BirthdayDictionary.EndCallback?.InitAfterLoadFromFile(Server);
 
             await UpdateBirthdayInfo();
         }

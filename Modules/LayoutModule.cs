@@ -17,15 +17,15 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "LayoutModulePermission")]
     [Group("layout")]
     [Alias("layouts")]
-    public class LayoutModule : ModuleBase<CommandContext>, IServerModule
+    public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Group("template")]
         [Alias("templates")]
-        public class TemplateModule : ModuleBase<CommandContext>, IServerModule
+        public class TemplateModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Priority(-1)]
             [Command]
@@ -36,11 +36,11 @@ namespace GeistDesWaldes.Modules
                 {
                     var body = new StringBuilder();
 
-                    if (_Server.LayoutTemplateHandler.TemplateDictionary.Templates.Count == 0)
+                    if (Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.Templates.Count == 0)
                         body.Append("-");
                     else
                     {
-                        foreach (var template in _Server.LayoutTemplateHandler.TemplateDictionary.Templates)
+                        foreach (var template in Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.Templates)
                             body.AppendLine(template.TemplateName);
                     }
 
@@ -71,7 +71,7 @@ namespace GeistDesWaldes.Modules
                         .SetTemplate(ChannelMessage.MessageTemplateOption.Templates)
                         .AddContent(new ChannelMessageContent()
                             .SetTitle(ReplyDictionary.ACTIVE_TEMPLATE)
-                            .SetDescription((_Server.LayoutTemplateHandler.TemplateDictionary.ActiveTemplate ?? "-"))
+                            .SetDescription((Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate ?? "-"))
                         );
 
                     await msg.SendAsync();
@@ -91,16 +91,16 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    if (!string.IsNullOrWhiteSpace(_Server.LayoutTemplateHandler.TemplateDictionary.ActiveTemplate))
+                    if (!string.IsNullOrWhiteSpace(Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate))
                     {
 
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_REVERTED, "{x}", _Server.LayoutTemplateHandler.TemplateDictionary.ActiveTemplate);
+                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_REVERTED, "{x}", Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate);
 
-                        var result = await _Server.LayoutTemplateHandler.RevertActiveTemplate();
+                        var result = await Server.GetModule<LayoutTemplateHandler>().RevertActiveTemplate();
 
                         if (result.IsSuccess)
                         {
-                            await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                            await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
                             ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Templates)
@@ -130,7 +130,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var creationResult = await _Server.LayoutTemplateHandler.CreateTemplate(name);
+                    var creationResult = await Server.GetModule<LayoutTemplateHandler>().CreateTemplate(name);
                     if (creationResult.IsSuccess)
                     {
                         var autofillResult = new StringBuilder();
@@ -138,7 +138,7 @@ namespace GeistDesWaldes.Modules
                         {
                             if (Context.Guild != null)
                             {
-                                var getTemplateResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                                var getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                                 if (getTemplateResult.IsSuccess)
                                 {
                                     foreach (var channel in await Context.Guild.GetChannelsAsync())
@@ -147,9 +147,9 @@ namespace GeistDesWaldes.Modules
                                         {
                                             autofillResult.Append($"\n{channel.Name}: ");
 
-                                            if (channel is ITextChannel || channel is IVoiceChannel)
+                                            if (channel is ITextChannel or IVoiceChannel)
                                             {
-                                                var addResult = await getTemplateResult.ResultValue.AddChannelLayout(channel.Id);
+                                                CustomRuntimeResult addResult = await getTemplateResult.ResultValue.AddChannelLayout(channel.Id);
 
                                                 if (addResult.IsSuccess)
                                                     autofillResult.Append(EmojiDictionary.GetEmoji(EmojiDictionary.CHECK_MARK));
@@ -190,7 +190,7 @@ namespace GeistDesWaldes.Modules
                         await msg.SendAsync();
 
 
-                        await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                        await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
                     }
 
                     return creationResult;
@@ -207,7 +207,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var getResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                    var getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
 
                     if (getResult.IsSuccess)
                     {
@@ -237,7 +237,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var removeResult = await _Server.LayoutTemplateHandler.RemoveTemplate(name);
+                    var removeResult = await Server.GetModule<LayoutTemplateHandler>().RemoveTemplate(name);
 
                     if (removeResult.IsSuccess)
                     {
@@ -254,7 +254,7 @@ namespace GeistDesWaldes.Modules
                         await msg.SendAsync();
 
 
-                        await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                        await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
                     }
 
                     return removeResult;
@@ -271,7 +271,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var applyResult = await _Server.LayoutTemplateHandler.ApplyTemplate(name);
+                    var applyResult = await Server.GetModule<LayoutTemplateHandler>().ApplyTemplate(name);
 
                     if (applyResult.IsSuccess)
                     {
@@ -288,7 +288,7 @@ namespace GeistDesWaldes.Modules
                         await msg.SendAsync();
 
 
-                        await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                        await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
                     }
 
                     return applyResult;
@@ -304,9 +304,9 @@ namespace GeistDesWaldes.Modules
 
         [Group("channel")]
         [Alias("channels")]
-        public class ChannelModule : ModuleBase<CommandContext>, IServerModule
+        public class ChannelModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("list")]
             [Summary("Lists set channels of existing layout template.")]
@@ -314,12 +314,12 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var getTemplateResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                    var getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getTemplateResult.IsSuccess)
                     {
                         StringBuilder body = new StringBuilder();
 
-                        if (_Server.LayoutTemplateHandler.TemplateDictionary.Templates.Count == 0)
+                        if (Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.Templates.Count == 0)
                             body.Append("-");
                         else
                         {
@@ -352,7 +352,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var getTemplateResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                    var getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getTemplateResult.IsSuccess)
                     {
                         StringBuilder body = new StringBuilder();
@@ -370,7 +370,7 @@ namespace GeistDesWaldes.Modules
                         }
 
 
-                        await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                        await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -397,7 +397,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Gets channel layout of an existing template.")]
             public async Task<RuntimeResult> GetChannelLayout([Summary("Name of existing template")] string name, IChannel channel)
             {
-                var getResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                var getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
 
                 if (getResult.IsSuccess)
                 {
@@ -431,18 +431,18 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    var getResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                    var getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getResult.IsSuccess)
                     {
                         if (channel == null)
                             return CustomRuntimeResult.FromError(ReplyDictionary.CHANNEL_ID_MUST_NOT_BE_EMPTY);
 
-                        var removalResult = await getResult.ResultValue.RemoveChannelLayout(_Server, channel.Id);
+                        var removalResult = await getResult.ResultValue.RemoveChannelLayout(Server, channel.Id);
                         if (removalResult.IsSuccess)
                         {
-                            string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_REMOVED_FROM_TEMPLATE, "{x}", $"{channel?.Name} ({channel?.Id})");
+                            string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_REMOVED_FROM_TEMPLATE, "{x}", $"{channel.Name} ({channel.Id})");
 
-                            await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                            await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
                             ChannelMessage msg = new ChannelMessage(Context)
                             .SetTemplate(ChannelMessage.MessageTemplateOption.Templates)
@@ -468,9 +468,9 @@ namespace GeistDesWaldes.Modules
 
             [Group("map")]
             [Alias("maps")]
-            public class MappingModule : ModuleBase<CommandContext>, IServerModule
+            public class MappingModule : ModuleBase<CommandContext>, ICommandModule
             {
-                public Server _Server { get; set; }
+                public Server Server { get; set; }
 
                 [Command("add")]
                 [Summary("Adds a map to a channel in an existing template.")]
@@ -481,7 +481,7 @@ namespace GeistDesWaldes.Modules
                         if (maps == null)
                             return CustomRuntimeResult.FromError($"{ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY} -> '{nameof(maps)}'");
 
-                        var getTemplateResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                        var getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                         if (getTemplateResult.IsSuccess)
                         {
                             if (!ulong.TryParse(channelId, out ulong parsedChannelId))
@@ -494,7 +494,7 @@ namespace GeistDesWaldes.Modules
 
                                 foreach (var map in maps)
                                 {
-                                    var addResult = await getChannelResult.ResultValue.AddLayoutMap(_Server, new ChannelLayoutMap(map.Index, map.Value, layoutTarget));
+                                    var addResult = await getChannelResult.ResultValue.AddLayoutMap(Server, new ChannelLayoutMap(map.Index, map.Value, layoutTarget));
 
                                     if (!addResult.IsSuccess)
                                         issues.AppendLine($"{map}: {addResult}");
@@ -507,7 +507,7 @@ namespace GeistDesWaldes.Modules
                                     body += $" \nIssues: {issues}";
 
 
-                                await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                                await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
 
                                 ChannelMessage msg = new ChannelMessage(Context)
@@ -538,7 +538,7 @@ namespace GeistDesWaldes.Modules
                 {
                     try
                     {
-                        var getTemplateResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                        var getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                         if (getTemplateResult.IsSuccess)
                         {
                             if (!ulong.TryParse(channelId, out ulong parsedChannelId))
@@ -591,7 +591,7 @@ namespace GeistDesWaldes.Modules
                         if (maps == null)
                             return CustomRuntimeResult.FromError($"{ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY} -> '{nameof(maps)}'");
 
-                        var getResult = await _Server.LayoutTemplateHandler.GetTemplate(name);
+                        var getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                         if (getResult.IsSuccess)
                         {
                             if (!ulong.TryParse(channelId, out ulong parsedChannelId))
@@ -604,7 +604,7 @@ namespace GeistDesWaldes.Modules
 
                                 foreach (var map in maps)
                                 {
-                                    var removalResult = await getChannelResult.ResultValue.RemoveLayoutMap(_Server, new ChannelLayoutMap(map.Index, map.Value, layoutTarget));
+                                    var removalResult = await getChannelResult.ResultValue.RemoveLayoutMap(Server, new ChannelLayoutMap(map.Index, map.Value, layoutTarget));
 
                                     if (!removalResult.IsSuccess)
                                         issues.AppendLine($"{map}: {removalResult}");
@@ -617,7 +617,7 @@ namespace GeistDesWaldes.Modules
                                     body += $" \nIssues: {issues}";
 
 
-                                await _Server.LayoutTemplateHandler.SaveTemplatesToFile();
+                                await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
 
                                 ChannelMessage msg = new ChannelMessage(Context)

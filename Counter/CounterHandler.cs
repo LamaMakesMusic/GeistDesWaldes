@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.Commands;
-using Discord.Commands.Builders;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.Misc;
@@ -23,31 +22,30 @@ namespace GeistDesWaldes.Counters
         {
             Counters = new List<Counter>();
         }
-
-        internal override void OnServerStart(object source, EventArgs e)
+        
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCounterHandler().SafeAsync<CounterHandler>(_Server.LogHandler);
-        }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
-        {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<CounterHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializeCounterHandler();
         }
 
         private async Task InitializeCounterHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, Counters);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, Counters);
             await LoadCounterCollectionFromFile();
 
             await UpdateCommandService();
         }
+        
+        public override async Task OnCheckIntegrity()
+        {
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
+        }
 
         private async Task CheckIntegrity()
         {
-            List<int> problematicEntries = new List<int>();
+            List<int> problematicEntries = [];
 
             for (int i = 0; i < Counters.Count; i++)
             {
@@ -57,11 +55,11 @@ namespace GeistDesWaldes.Counters
 
             if (problematicEntries.Count > 0)
             {
-                var builder = new StringBuilder("Counters ERROR:\n");
+                StringBuilder builder = new("Counters ERROR:\n");
 
                 for (int i = 0; i < problematicEntries.Count; i++)
                 {
-                    var counter = Counters[problematicEntries[i]];
+                    Counter counter = Counters[problematicEntries[i]];
 
                     if (counter == null)
                         builder.AppendLine($"...[{problematicEntries[i]}] | null");
@@ -69,10 +67,10 @@ namespace GeistDesWaldes.Counters
                         builder.AppendLine($"...[{problematicEntries[i]}] | empty name");
                 }
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Counters OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Counters OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
@@ -92,7 +90,7 @@ namespace GeistDesWaldes.Counters
 
         public async Task<CustomRuntimeResult> AddCounterAsync(Counter counter)
         {
-            if (GetCounter(counter.Name).ResultValue is Counter)
+            if (GetCounter(counter.Name).ResultValue != null)
                 return CustomRuntimeResult.FromError($"{ReplyDictionary.COUNTER_WITH_NAME_ALREADY_EXISTS}: '{counter.Name}'!");
 
             Counters.Add(counter);
@@ -106,8 +104,9 @@ namespace GeistDesWaldes.Counters
 
         public async Task<CustomRuntimeResult> RemoveCounterAsync(string name)
         {
-            var runtimeResult = GetCounter(name);
-            if (runtimeResult.ResultValue is Counter counter)
+            CustomRuntimeResult<Counter> runtimeResult = GetCounter(name);
+            
+            if (runtimeResult.ResultValue is { } counter)
             {
                 Counters.Remove(counter);
 
@@ -137,16 +136,16 @@ namespace GeistDesWaldes.Counters
 
         public Task SaveCounterCollectionToFile()
         {
-            return GenericXmlSerializer.SaveAsync<List<Counter>>(_Server.LogHandler, Counters, COUNTER_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<List<Counter>>(Server.LogHandler, Counters, COUNTER_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadCounterCollectionFromFile()
         {
-            List<Counter> loadedCounters = null;
+            List<Counter> loadedCounters;
 
-            loadedCounters = await GenericXmlSerializer.LoadAsync<List<Counter>>(_Server.LogHandler, COUNTER_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            loadedCounters = await GenericXmlSerializer.LoadAsync<List<Counter>>(Server.LogHandler, COUNTER_FILE_NAME, Server.ServerFilesDirectoryPath);
 
             if (loadedCounters == default(List<Counter>))
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCounterCollectionFromFile), "Loaded Counters == DEFAULT"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadCounterCollectionFromFile), "Loaded Counters == DEFAULT"));
             else
                 Counters = loadedCounters;
 
@@ -162,26 +161,25 @@ namespace GeistDesWaldes.Counters
             try
             {
                 if (_moduleInfo != null)
-                    await _Server.CommandService.RemoveModuleAsync(_moduleInfo);
+                    await Server.CommandService.RemoveModuleAsync(_moduleInfo);
 
-                _moduleInfo = await _Server.CommandService.CreateModuleAsync("",
-                    new Action<ModuleBuilder>(mb =>
+                _moduleInfo = await Server.CommandService.CreateModuleAsync("",
+                    mb =>
                     {
                         for (int i = 0; i < Counters.Count; i++)
                         {
                             mb.AddCommand(Counters[i].Name, Counters[i].ExecuteCallback,
-                                            new Action<CommandBuilder>(cb => cb.WithSummary("Custom Counter").AddParameter<string>("param1", p1 => p1.IsOptional = true).AddParameter<int>("param2", p2 => p2.IsOptional = true))
-                                        );
+                                cb => cb.WithSummary("Custom Counter").AddParameter<string>("param1", p1 => p1.IsOptional = true).AddParameter<int>("param2", p2 => p2.IsOptional = true)
+                            );
                         }
                     }
-                    )
                 );
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(UpdateCommandService), "Command Service Update: OK"), (int)ConsoleColor.Green);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(UpdateCommandService), "Command Service Update: OK"), (int)ConsoleColor.Green);
             }
             catch (Exception e)
             {
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCommandService), $"Command Service Update: ERROR \n{e}"));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(UpdateCommandService), $"Command Service Update: ERROR \n{e}"));
             }
         }
 

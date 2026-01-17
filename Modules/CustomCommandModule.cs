@@ -16,9 +16,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CustomCommandFree")]
     [Group("command")]
     [Alias("commands")]
-    public class CustomCommandModule : ModuleBase<CommandContext>, IServerModule
+    public class CustomCommandModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Priority(-1)]
         [Command]
@@ -27,11 +27,11 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                ChannelMessage msg = _Server.CommandInfoHandler.CustomCommandHelpMessage;
+                ChannelMessage msg = Server.GetModule<CommandInfoHandler>().CustomCommandHelpMessage;
                 
-                if (!string.IsNullOrWhiteSpace(_Server.Config.GeneralSettings.CommandPageLink))
+                if (!string.IsNullOrWhiteSpace(Server.Config.GeneralSettings.CommandPageLink))
                 {
-                    msg = _Server.CommandInfoHandler.CommandPageLinkMessage;
+                    msg = Server.GetModule<CommandInfoHandler>().CommandPageLinkMessage;
                 }
                 
                 msg.Channel = Context.Channel;
@@ -48,9 +48,9 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "CustomCommandAdmin")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CustomCommandAdmin")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CustomCommandAdmin")]
-        public class CustomCommandModPermissionSubModule : ModuleBase<CommandContext>, IServerModule
+        public class CustomCommandModPermissionSubModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
 
             [Command("add")]
@@ -58,15 +58,15 @@ namespace GeistDesWaldes.Modules
             public async Task<RuntimeResult> AddCommand(string commandName, string[] commands, [Summary("Category")] string category = "null", [Summary("Embed on execution?")] bool embed = false, [Summary("Cooldown in Seconds")] float cooldown = 0, [Summary("Price")] int fee = 0, IChannel channel = null)
             {
                 commandName = commandName.ToLower();
-                var parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
 
                 if (parseResult.IsSuccess)
                 {
-                    var newCommand = new CustomCommand(_Server, commandName, parseResult.ResultValue, channel != null ? channel.Id : 0, cooldown, fee, embed);
+                    CustomCommand newCommand = new CustomCommand(Server, commandName, parseResult.ResultValue, channel != null ? channel.Id : 0, cooldown, fee, embed);
                     if (!string.IsNullOrWhiteSpace(category) && !category.Equals("null", StringComparison.OrdinalIgnoreCase))
-                        await newCommand.SetCategory(_Server, (await _Server.CustomCommandHandler.GetOrCreateCategory(category)).ResultValue);
+                        await newCommand.SetCategory(Server, (await Server.GetModule<CustomCommandHandler>().GetOrCreateCategory(category)).ResultValue);
 
-                    var addResult = await _Server.CustomCommandHandler.AddCommandAsync(newCommand);
+                    CustomRuntimeResult addResult = await Server.GetModule<CustomCommandHandler>().AddCommandAsync(newCommand);
                     if (addResult.IsSuccess)
                     {
                         string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COMMAND_X_CREATED, "{x}", commandName);
@@ -92,7 +92,7 @@ namespace GeistDesWaldes.Modules
             public async Task<RuntimeResult> RemoveCommand(string commandName)
             {
                 commandName = commandName.ToLower();
-                var result = await _Server.CustomCommandHandler.RemoveCommandAsync(commandName);
+                CustomRuntimeResult result = await Server.GetModule<CustomCommandHandler>().RemoveCommandAsync(commandName);
 
                 if (result.IsSuccess)
                 {
@@ -144,19 +144,19 @@ namespace GeistDesWaldes.Modules
 
             public async Task<RuntimeResult> EditCommand(string commandName, float? cooldown = null, int? fee = null, string[] commands = null, string category = "null", IChannel channel = null, bool? embed = null, bool? showInfo = null)
             {
-                var result = await _Server.CustomCommandHandler.GetCommandAsync(commandName);
-                if (result.IsSuccess && result.ResultValue is CustomCommand command)
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<CustomCommandHandler>().GetCommandAsync(commandName);
+                if (result.IsSuccess && result.ResultValue is { } command)
                 {
                     CustomRuntimeResult<CommandMetaInfo[]> parseResult;
                     if (commands == null)
                         parseResult = CustomRuntimeResult<CommandMetaInfo[]>.FromSuccess(value: null);
                     else
-                        parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                        parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
 
                     if (parseResult.IsSuccess)
                     {
                         if (channel != null)
-                            command.TextChannelContextID = channel.Id;
+                            command.TextChannelContextId = channel.Id;
 
                         if (parseResult.ResultValue != null)
                             command.CommandsToExecute = parseResult.ResultValue;
@@ -176,15 +176,15 @@ namespace GeistDesWaldes.Modules
                         if (!category.Equals("null", StringComparison.OrdinalIgnoreCase))
                         {
                             if (string.IsNullOrWhiteSpace(category))
-                                await command.SetCategory(_Server, null);
+                                await command.SetCategory(Server, null);
                             else
-                                await command.SetCategory(_Server, (await _Server.CustomCommandHandler.GetOrCreateCategory(category)).ResultValue);
+                                await command.SetCategory(Server, (await Server.GetModule<CustomCommandHandler>().GetOrCreateCategory(category)).ResultValue);
                         }
 
                         command.EnsureParameterQuotes();
 
-                        await _Server.CustomCommandHandler.UpdateCommandService();
-                        await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                        await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
+                        await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
                         string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COMMAND_X_EDITED, "{x}", commandName);
 
@@ -213,9 +213,9 @@ namespace GeistDesWaldes.Modules
     [RequireIsFollower(Group = "CustomCommandFree")]
     [Group("category")]
     [Alias("categories")]
-    public class CustomCommandCategoryModule : ModuleBase<CommandContext>, IServerModule
+    public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
         [Priority(-1)]
         [Command]
@@ -225,7 +225,7 @@ namespace GeistDesWaldes.Modules
             string header;
             StringBuilder body = new StringBuilder();
 
-            var categorySearchResult = await _Server.CustomCommandHandler.GetCategory(categoryName);
+            CustomRuntimeResult<CustomCommandCategory> categorySearchResult = await Server.GetModule<CustomCommandHandler>().GetCategory(categoryName);
             if (categorySearchResult.IsSuccess)
             {
                 header = categorySearchResult.ResultValue.Name;
@@ -236,12 +236,12 @@ namespace GeistDesWaldes.Modules
                 }
                 else
                 {
-                    foreach (var command in categorySearchResult.ResultValue.Commands)
+                    foreach (string command in categorySearchResult.ResultValue.Commands)
                     {
-                        var cmd = await _Server.CommandInfoHandler.GetCommandInfoAsync(command, true);
+                        CustomRuntimeResult<CommandMetaInfo> cmd = await Server.GetModule<CommandInfoHandler>().GetCommandInfoAsync(command, true);
 
                         if (cmd.IsSuccess)
-                            body.AppendLine(await _Server.CommandInfoHandler.GetCommandInfoStringAsync(cmd.ResultValue, cmd.ResultValue.Groups.Count + 2));
+                            body.AppendLine(await Server.GetModule<CommandInfoHandler>().GetCommandInfoStringAsync(cmd.ResultValue, cmd.ResultValue.Groups.Count + 2));
                         else
                             body.AppendLine($"{command}");
                     }
@@ -251,13 +251,13 @@ namespace GeistDesWaldes.Modules
             {
                 header = ReplyDictionary.CATEGORIES;
 
-                if (_Server.CustomCommandHandler.CustomCommands.Categories.Count == 0)
+                if (Server.GetModule<CustomCommandHandler>().CustomCommands.Categories.Count == 0)
                 {
                     body.AppendLine("-");
                 }
                 else
                 {
-                    foreach (var category in _Server.CustomCommandHandler.CustomCommands.Categories)
+                    foreach (CustomCommandCategory category in Server.GetModule<CustomCommandHandler>().CustomCommands.Categories)
                         body.AppendLine($"{category} | cmds:{category.Commands.Count}");
                 }
             }
@@ -268,7 +268,7 @@ namespace GeistDesWaldes.Modules
                             .AddContent(new ChannelMessageContent()
                                 .SetTitle(header, EmojiDictionary.OPEN_FOLDER)
                                 .SetDescription(body.ToString()))
-                            .SetFooter(categorySearchResult?.ResultValue?.GetCostsString());
+                            .SetFooter(categorySearchResult.ResultValue?.GetCostsString());
 
             await msg.SendAsync();
 
@@ -277,16 +277,16 @@ namespace GeistDesWaldes.Modules
 
         [RequireUserPermission(GuildPermission.Administrator, Group = "CustomCommandAdmin")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CustomCommandAdmin")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CustomCommandAdmin")]
-        public class CustomCommandCategoryModPermissionSubModule : ModuleBase<CommandContext>, IServerModule
+        public class CustomCommandCategoryModPermissionSubModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
 
             [Command("add")]
             [Summary("Creates a new category.")]
             public async Task<RuntimeResult> CreateCategory([Summary("The name of the category")] string categoryName, [Summary("Cooldown in Seconds")] float cooldown = -1f, int fee = 0)
             {
-                var result = await _Server.CustomCommandHandler.CreateCategory(categoryName);
+                CustomRuntimeResult<CustomCommandCategory> result = await Server.GetModule<CustomCommandHandler>().CreateCategory(categoryName);
 
                 if (result.IsSuccess)
                 {
@@ -307,8 +307,8 @@ namespace GeistDesWaldes.Modules
                     await msg.SendAsync();
 
 
-                    await _Server.CustomCommandHandler.UpdateCommandService();
-                    await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                    await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
+                    await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
                     return CustomRuntimeResult.FromSuccess();
                 }
@@ -320,14 +320,14 @@ namespace GeistDesWaldes.Modules
             [Summary("Edits an existing category.")]
             public async Task<RuntimeResult> SetCategoryCooldown([Summary("The name of the category")] string categoryName, [Summary("New Cooldown in Seconds")] float cooldown)
             {
-                var result = await _Server.CustomCommandHandler.GetCategory(categoryName);
+                CustomRuntimeResult<CustomCommandCategory> result = await Server.GetModule<CustomCommandHandler>().GetCategory(categoryName);
 
                 if (result.IsSuccess)
                 {
                     result.ResultValue.CategoryCooldownInSeconds = cooldown;
 
-                    await _Server.CustomCommandHandler.UpdateCommandService();
-                    await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                    await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
+                    await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_EDITED, "{x}", categoryName);
@@ -352,7 +352,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Edits an existing category.")]
             public async Task<RuntimeResult> SetCategoryFee([Summary("The name of the category")] string categoryName, [Summary("New Fee")] int fee)
             {
-                var result = await _Server.CustomCommandHandler.GetCategory(categoryName);
+                CustomRuntimeResult<CustomCommandCategory> result = await Server.GetModule<CustomCommandHandler>().GetCategory(categoryName);
 
                 if (result.IsSuccess)
                 {
@@ -362,8 +362,8 @@ namespace GeistDesWaldes.Modules
 
                     result.ResultValue.PriceTag = fee;
 
-                    await _Server.CustomCommandHandler.UpdateCommandService();
-                    await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                    await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
+                    await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
                     ChannelMessage msg = new ChannelMessage(Context)
@@ -384,12 +384,12 @@ namespace GeistDesWaldes.Modules
             [Summary("(Un-/locks a category, blocking it from execution.")]
             public async Task<RuntimeResult> LockCategory([Summary("The name of the category")] string categoryName, bool categoryLocked)
             {
-                var result = await _Server.CustomCommandHandler.GetCategory(categoryName);
+                CustomRuntimeResult<CustomCommandCategory> result = await Server.GetModule<CustomCommandHandler>().GetCategory(categoryName);
 
                 if (result.IsSuccess)
                 {
                     result.ResultValue.Locked = categoryLocked;
-                    await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                    await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_EDITED, "{x}", categoryName);
@@ -415,12 +415,12 @@ namespace GeistDesWaldes.Modules
             [Summary("Deletes an existing category.")]
             public async Task<RuntimeResult> DeleteCategory([Summary("The name of the category")] string categoryName)
             {
-                var result = await _Server.CustomCommandHandler.DeleteCategory(categoryName);
+                CustomRuntimeResult result = await Server.GetModule<CustomCommandHandler>().DeleteCategory(categoryName);
 
                 if (result.IsSuccess)
                 {
-                    await _Server.CustomCommandHandler.UpdateCommandService();
-                    await _Server.CustomCommandHandler.SaveCustomCommandsToFile();
+                    await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
+                    await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_REMOVED, "{x}", categoryName);

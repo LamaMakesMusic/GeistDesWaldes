@@ -6,6 +6,8 @@ using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.TwitchIntegration;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.Calendar;
+using GeistDesWaldes.Users;
 using TwitchLib.Api.Helix.Models.Chat;
 
 namespace GeistDesWaldes.Modules
@@ -13,9 +15,9 @@ namespace GeistDesWaldes.Modules
     [RequireTimeJoined("0", "1", Group = "Free4AllPermission")]
     [RequireIsFollower(Group = "Free4AllPermission")]
     [RequireIsBot(Group = "Free4AllPermission")]
-    public class TwitchStreamModule : ModuleBase<CommandContext>, IServerModule
+    public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
 
         [Command("uptime")]
@@ -24,7 +26,7 @@ namespace GeistDesWaldes.Modules
         {
             try
             {
-                string channelName = _Server.Config.TwitchSettings.TwitchChannelName;
+                string channelName = Server.Config.TwitchSettings.TwitchChannelName;
 
                 StreamObject cachedStream = null;
                 
@@ -38,7 +40,7 @@ namespace GeistDesWaldes.Modules
                 if (cachedStream != null && cachedStream.IsOnline)
                 {
                     body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_STREAMING_FOR_Y, "{x}", channelName);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", _Server.CultureInfo));
+                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
                 }
                 else
                 {
@@ -49,7 +51,7 @@ namespace GeistDesWaldes.Modules
                     else
                     {
                         body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_LAST_STREAM_Y_AGO, "{x}", channelName);
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", _Server.CultureInfo));
+                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
                     }
                 }
 
@@ -86,14 +88,14 @@ namespace GeistDesWaldes.Modules
                     return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.USER_X_NOT_A_TWITCH_USER, "{x}", user?.Username ?? "null"));
 
                 string body;
-                var isFollowerResult = await RequireIsFollower.IsUserAFollower(twitchUser.TwitchId, _Server.RuntimeConfig.ChannelOwner.Id);
+                var isFollowerResult = await RequireIsFollower.IsUserAFollower(twitchUser.TwitchId, Server.RuntimeConfig.ChannelOwner.Id);
 
                 if (isFollowerResult.Item1 != null)
                 {
                     var followage = new TimeObject((DateTime.UtcNow - isFollowerResult.Item1.FollowedAt.ToUniversalTime()), isFollowerResult.Item1.FollowedAt.ToUniversalTime());
 
                     body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_FOLLOWING_Y_FOR_Z_TIME, "{x}", twitchUser.Username);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", _Server.Config.TwitchSettings.TwitchChannelName);
+                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", Server.Config.TwitchSettings.TwitchChannelName);
                     body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{z}", followage.ToStringMinimal());
                 }
                 else if (isFollowerResult.Item2 != null)
@@ -133,7 +135,7 @@ namespace GeistDesWaldes.Modules
                 if (Context.Channel is not TwitchMessageChannel || Context.User is not TwitchUser twitchUser)
                     return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH} -> '{Context?.Channel?.Name}' is not a {nameof(TwitchMessageChannel)}.");
 
-                var userResult = await _Server.ForestUserHandler.GetUser(twitchUser);
+                var userResult = await Server.GetModule<ForestUserHandler>().GetUser(twitchUser);
                 if (!userResult.IsSuccess)
                     return CustomRuntimeResult.FromError(userResult.Reason);
                 
@@ -163,9 +165,9 @@ namespace GeistDesWaldes.Modules
         [RequireUserPermission(GuildPermission.ManageChannels, Group = "Free4AllAdminPermission")]
         [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "Free4AllAdminPermission")]
         [RequireIsBot(Group = "Free4AllAdminPermission")]
-        public class TwitchStreamAdminModule : ModuleBase<CommandContext>, IServerModule
+        public class TwitchStreamAdminModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             public enum TwitchAnnouncementColorOption
             {
@@ -189,7 +191,7 @@ namespace GeistDesWaldes.Modules
                     if (Context.Channel is not TwitchMessageChannel)
                         return CustomRuntimeResult.FromError($"{ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH} -> '{Context?.Channel?.Name}' is not a {nameof(TwitchMessageChannel)}.");
 
-                    var userResult = await _Server.ForestUserHandler.GetUser(targetUser);
+                    var userResult = await Server.GetModule<ForestUserHandler>().GetUser(targetUser);
                     if (!userResult.IsSuccess)
                         return CustomRuntimeResult.FromError(userResult.Reason);
 
@@ -275,7 +277,7 @@ namespace GeistDesWaldes.Modules
             {
                 try
                 {
-                    await _Server.WebCalSyncHandler.SyncCalendarToDiscordChannel();
+                    await Server.GetModule<WebCalSyncHandler>().SyncCalendarToDiscordChannel();
 
                     return CustomRuntimeResult.FromSuccess();
                 }

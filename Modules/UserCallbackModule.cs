@@ -6,6 +6,7 @@ using GeistDesWaldes.Dictionaries;
 using GeistDesWaldes.UserCommands;
 using System;
 using System.Threading.Tasks;
+using GeistDesWaldes.CommandMeta;
 using static GeistDesWaldes.UserCommands.UserCallbackDictionary;
 
 namespace GeistDesWaldes.Modules
@@ -15,24 +16,24 @@ namespace GeistDesWaldes.Modules
     [RequireIsBot(Group = "CallbackPermissions")]
     [Group("callback")]
     [Alias("callbacks")]
-    public class UserCallbackModule : ModuleBase<CommandContext>, IServerModule
+    public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
     {
-        public Server _Server { get; set; }
+        public Server Server { get; set; }
 
 
         [Group("discord")]
-        public class CallbackDiscordSubModule : ModuleBase<CommandContext>, IServerModule
+        public class CallbackDiscordSubModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("set")]
             [Summary("Sets new callback action, overwriting the current action!")]
             public async Task<RuntimeResult> RegisterCallbackAction(DiscordCallbackTypes callbackType, string[] commands, IChannel channel = null)
             {
-                var parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
                 if (parseResult.IsSuccess)
                 {
-                    CustomRuntimeResult addResult = await _Server.UserCallbackHandler.SetCallback(callbackType, new CustomCommand(_Server, callbackType.ToString(), parseResult.ResultValue, channel != null ? channel.Id : 0));
+                    CustomRuntimeResult addResult = await Server.GetModule<UserCallbackHandler>().SetCallback(callbackType, new CustomCommand(Server, callbackType.ToString(), parseResult.ResultValue, channel?.Id ?? 0));
 
                     if (addResult.IsSuccess)
                     {
@@ -58,13 +59,13 @@ namespace GeistDesWaldes.Modules
             [Summary("Changes channel of existing callback.")]
             public async Task<RuntimeResult> SetCallbackChannel(DiscordCallbackTypes callbackType, IChannel channel)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
-                    result.ResultValue.TextChannelContextID = channel != null ? channel.Id : default;
+                    result.ResultValue.TextChannelContextId = channel?.Id ?? default;
 
-                    await _Server.UserCallbackHandler.SaveUserCallbacksToFile();
+                    await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
 
@@ -85,13 +86,13 @@ namespace GeistDesWaldes.Modules
             [Summary("Should callback messages be embedded?")]
             public async Task<RuntimeResult> SetCallbackEmbed(DiscordCallbackTypes callbackType, bool embed)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
                     result.ResultValue.Embed = embed;
 
-                    await _Server.UserCallbackHandler.SaveUserCallbacksToFile();
+                    await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
 
@@ -112,7 +113,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Clears set callback action!")]
             public async Task<RuntimeResult> ClearCallbackAction(DiscordCallbackTypes callbackType)
             {
-                var result = await _Server.UserCallbackHandler.SetCallback(callbackType, null);
+                CustomRuntimeResult result = await Server.GetModule<UserCallbackHandler>().SetCallback(callbackType, null);
 
                 if (result.IsSuccess)
                 {
@@ -135,7 +136,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Shows currently set callback action.")]
             public async Task<RuntimeResult> GetCallbackAction(DiscordCallbackTypes callbackType)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
@@ -157,24 +158,24 @@ namespace GeistDesWaldes.Modules
             [Summary("Tests execution of the given callback.")]
             public async Task<RuntimeResult> TestCallbackAction(DiscordCallbackTypes callbackType, string[] additionalParameters = null)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
-                if (result.IsSuccess && result.ResultValue is CustomCommand cc && cc != null)
+                if (result.IsSuccess && result.ResultValue is { } cc)
                 {
-                    ulong origChannel = cc.TextChannelContextID;
+                    ulong origChannel = cc.TextChannelContextId;
 
                     try
                     {
-                        cc.TextChannelContextID = Context.Channel.Id;
+                        cc.TextChannelContextId = Context.Channel.Id;
                         await cc.Execute(Context, additionalParameters);
                     }
                     catch (Exception e)
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallbackAction), "", e));
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallbackAction), "", e));
                     }
                     finally
                     {
-                        cc.TextChannelContextID = origChannel;
+                        cc.TextChannelContextId = origChannel;
                     }
                 }
 
@@ -183,19 +184,19 @@ namespace GeistDesWaldes.Modules
         }
 
         [Group("twitch")]
-        public class CallbackTwitchSubModule : ModuleBase<CommandContext>, IServerModule
+        public class CallbackTwitchSubModule : ModuleBase<CommandContext>, ICommandModule
         {
-            public Server _Server { get; set; }
+            public Server Server { get; set; }
 
             [Command("set")]
             [Summary("Sets new callback action, overwriting the current action!")]
             public async Task<RuntimeResult> RegisterCallbackAction(TwitchCallbackTypes callbackType, string[] commands, IChannel channel)
             {
-                var parseResult = await _Server.CommandInfoHandler.ParseToSerializableCommandInfo(commands, Context);
+                CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
 
                 if (parseResult.IsSuccess)
                 {
-                    CustomRuntimeResult addResult = await _Server.UserCallbackHandler.SetCallback(callbackType, new CustomCommand(_Server, callbackType.ToString(), parseResult.ResultValue, channel != null ? channel.Id : 0));
+                    CustomRuntimeResult addResult = await Server.GetModule<UserCallbackHandler>().SetCallback(callbackType, new CustomCommand(Server, callbackType.ToString(), parseResult.ResultValue, channel?.Id ?? 0));
 
                     if (addResult.IsSuccess)
                     {
@@ -222,13 +223,13 @@ namespace GeistDesWaldes.Modules
             [Summary("Changes channel of existing callback.")]
             public async Task<RuntimeResult> SetCallbackChannel(TwitchCallbackTypes callbackType, IChannel channel)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
-                    result.ResultValue.TextChannelContextID = channel != null ? channel.Id : default;
+                    result.ResultValue.TextChannelContextId = channel?.Id ?? default;
 
-                    await _Server.UserCallbackHandler.SaveUserCallbacksToFile();
+                    await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
 
@@ -249,13 +250,13 @@ namespace GeistDesWaldes.Modules
             [Summary("Should callback messages be embedded?")]
             public async Task<RuntimeResult> SetCallbackEmbed(TwitchCallbackTypes callbackType, bool embed)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
                     result.ResultValue.Embed = embed;
 
-                    await _Server.UserCallbackHandler.SaveUserCallbacksToFile();
+                    await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
                     string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
 
@@ -276,7 +277,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Clears set callback action!")]
             public async Task<RuntimeResult> ClearCallbackAction(TwitchCallbackTypes callbackType)
             {
-                var result = await _Server.UserCallbackHandler.SetCallback(callbackType, null);
+                CustomRuntimeResult result = await Server.GetModule<UserCallbackHandler>().SetCallback(callbackType, null);
 
                 if (result.IsSuccess)
                 {
@@ -299,7 +300,7 @@ namespace GeistDesWaldes.Modules
             [Summary("Shows currently set callback action.")]
             public async Task<RuntimeResult> GetCallbackAction(TwitchCallbackTypes callbackType)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
                 if (result.IsSuccess)
                 {
@@ -321,24 +322,24 @@ namespace GeistDesWaldes.Modules
             [Summary("Tests execution of the given callback.")]
             public async Task<RuntimeResult> TestCallbackAction(TwitchCallbackTypes callbackType, string[] additionalParameters = null)
             {
-                var result = await _Server.UserCallbackHandler.GetCallbackCommand(callbackType);
+                CustomRuntimeResult<CustomCommand> result = await Server.GetModule<UserCallbackHandler>().GetCallbackCommand(callbackType);
 
-                if (result.IsSuccess && result.ResultValue is CustomCommand cc && cc != null)
+                if (result.IsSuccess && result.ResultValue is { } cc)
                 {
-                    ulong origChannel = cc.TextChannelContextID;
+                    ulong origChannel = cc.TextChannelContextId;
 
                     try
                     {
-                        cc.TextChannelContextID = Context.Channel.Id;
+                        cc.TextChannelContextId = Context.Channel.Id;
                         await cc.Execute(Context, additionalParameters);
                     }
                     catch (Exception e)
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallbackAction), "", e));
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(TestCallbackAction), "", e));
                     }
                     finally
                     {
-                        cc.TextChannelContextID = origChannel;
+                        cc.TextChannelContextId = origChannel;
                     }
                 }
 

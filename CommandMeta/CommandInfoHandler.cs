@@ -16,8 +16,8 @@ namespace GeistDesWaldes.CommandMeta
 {
     public class CommandInfoHandler : BaseHandler
     {
-        private readonly List<CommandMetaInfo> FactoryCommands;
-        private readonly List<CommandMetaInfo> CustomCommands;
+        private readonly List<CommandMetaInfo> _factoryCommands = [];
+        private readonly List<CommandMetaInfo> _customCommands = [];
 
         public ChannelMessage CommandPageLinkMessage;
         public ChannelMessage CustomCommandHelpMessage;
@@ -27,25 +27,24 @@ namespace GeistDesWaldes.CommandMeta
         private const string CUSTOM_COMMAND_MANUAL_FILE_NAME = "commandsCustom.md";
         public const string COMMAND_ALIAS_DIVIDER = "::";
 
+        private readonly CustomCommandHandler _customCommandHandler;
+        
 
-        public CommandInfoHandler(Server server) : base(server)
+        public CommandInfoHandler(Server server, CustomCommandHandler commandHandler) : base(server)
         {
-            FactoryCommands = [];
-            CustomCommands = [];
+            _customCommandHandler = commandHandler;
         }
 
-
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeCommandInfoHandler().SafeAsync<CommandInfoHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializeCommandInfoHandler();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<CommandInfoHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializeCommandInfoHandler()
@@ -57,13 +56,13 @@ namespace GeistDesWaldes.CommandMeta
             await ExportCustomCommandInfoPage();
             await ExportFactoryCommandInfoPage();
 
-            CommandPageLinkMessage = new ChannelMessage(null).SetTemplate(ChannelMessage.MessageTemplateOption.Information).AddContent(new ChannelMessageContent().SetTitle("All Commands").SetDescription(_Server.Config.GeneralSettings.CommandPageLink));
+            CommandPageLinkMessage = new ChannelMessage(null).SetTemplate(ChannelMessage.MessageTemplateOption.Information).AddContent(new ChannelMessageContent().SetTitle("All Commands").SetDescription(Server.Config.GeneralSettings.CommandPageLink));
         }
 
         private async Task CheckIntegrity()
         {
             // Is there even anything to check here?
-            await _Server.LogHandler.Log(new Discord.LogMessage(Discord.LogSeverity.Info, nameof(CheckIntegrity), "Command Info OK."), (int)ConsoleColor.DarkGreen);
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Command Info OK."), (int)ConsoleColor.DarkGreen);
         }
 
 
@@ -207,12 +206,12 @@ namespace GeistDesWaldes.CommandMeta
                     classCommands.Add(entry);
                 }
 
-                FactoryCommands.AddRange(classCommands);
+                _factoryCommands.AddRange(classCommands);
             }
 
 
             //Sort By Name
-            FactoryCommands.Sort((c1, c2) => c1.FullName.CompareTo(c2.FullName));
+            _factoryCommands.Sort((c1, c2) => c1.FullName.CompareTo(c2.FullName));
             return Task.CompletedTask;
         }
 
@@ -247,11 +246,11 @@ namespace GeistDesWaldes.CommandMeta
 
         public Task CollectCustomCommands()
         {
-            CustomCommands.Clear();
+            _customCommands.Clear();
 
-            foreach (CustomCommand cmd in _Server.CustomCommandHandler.CustomCommands.Commands)
+            foreach (CustomCommand cmd in _customCommandHandler.CustomCommands.Commands)
             {
-                CustomCommands.Add(new CommandMetaInfo { Name = cmd.Name, IsCustomCommand = true });
+                _customCommands.Add(new CommandMetaInfo { Name = cmd.Name, IsCustomCommand = true });
             }
 
             return Task.CompletedTask;
@@ -267,16 +266,16 @@ namespace GeistDesWaldes.CommandMeta
                 {
                     string[] splitName = commandName.Split(' ');
 
-                    for (int i = 0; i < FactoryCommands.Count; i++)
+                    for (int i = 0; i < _factoryCommands.Count; i++)
                     {
-                        if (splitName.Length != FactoryCommands[i].Groups.Count + (FactoryCommands[i].Name != null ? 1 : 0))
+                        if (splitName.Length != _factoryCommands[i].Groups.Count + (_factoryCommands[i].Name != null ? 1 : 0))
                             continue;
 
                         bool failed = false;
 
-                        for (int j = 0; j < FactoryCommands[i].Groups.Count; j++)
+                        for (int j = 0; j < _factoryCommands[i].Groups.Count; j++)
                         {
-                            string[] splitGroup = FactoryCommands[i].Groups[j].Split(COMMAND_ALIAS_DIVIDER);
+                            string[] splitGroup = _factoryCommands[i].Groups[j].Split(COMMAND_ALIAS_DIVIDER);
 
                             if (splitGroup.Contains(splitName[j], StringComparer.OrdinalIgnoreCase))
                                 continue;
@@ -288,17 +287,17 @@ namespace GeistDesWaldes.CommandMeta
                         if (failed)
                             continue;
 
-                        if (FactoryCommands[i].Name != null && !FactoryCommands[i].Name.Equals(splitName[^1], StringComparison.OrdinalIgnoreCase))
+                        if (_factoryCommands[i].Name != null && !_factoryCommands[i].Name.Equals(splitName[^1], StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        return CustomRuntimeResult<CommandMetaInfo>.FromSuccess(value: FactoryCommands[i]);
+                        return CustomRuntimeResult<CommandMetaInfo>.FromSuccess(value: _factoryCommands[i]);
                     }
                 }
 
-                for (int i = 0; i < CustomCommands.Count; i++)
+                for (int i = 0; i < _customCommands.Count; i++)
                 {
-                    if (commandName.Equals(CustomCommands[i].Name, StringComparison.OrdinalIgnoreCase))
-                        return CustomRuntimeResult<CommandMetaInfo>.FromSuccess(value: CustomCommands[i]);
+                    if (commandName.Equals(_customCommands[i].Name, StringComparison.OrdinalIgnoreCase))
+                        return CustomRuntimeResult<CommandMetaInfo>.FromSuccess(value: _customCommands[i]);
                 }
 
                 return CustomRuntimeResult<CommandMetaInfo>.FromError($"{ReplyDictionary.COULD_NOT_FIND_COMMAND_NAMED} '{commandName}'");
@@ -310,15 +309,15 @@ namespace GeistDesWaldes.CommandMeta
             {
                 List<CommandMetaInfo> commands = new List<CommandMetaInfo>();
 
-                for (int i = 0; i < FactoryCommands.Count; i++)
+                for (int i = 0; i < _factoryCommands.Count; i++)
                 {
-                    if (FactoryCommands[i].Groups.Count < groupQuery.Length)
+                    if (_factoryCommands[i].Groups.Count < groupQuery.Length)
                         continue;
 
                     bool failed = false;
                     for (int j = 0; j < groupQuery.Length; j++)
                     {
-                        string[] aliases = FactoryCommands[i].Groups[j].Split(COMMAND_ALIAS_DIVIDER);
+                        string[] aliases = _factoryCommands[i].Groups[j].Split(COMMAND_ALIAS_DIVIDER);
 
                         if (aliases.Contains(groupQuery[j], StringComparer.OrdinalIgnoreCase))
                             continue;
@@ -330,7 +329,7 @@ namespace GeistDesWaldes.CommandMeta
                     if (failed)
                         continue;
 
-                    commands.Add(FactoryCommands[i]);
+                    commands.Add(_factoryCommands[i]);
                 }
 
                 if (commands.Count > 0)
@@ -377,7 +376,7 @@ namespace GeistDesWaldes.CommandMeta
                     {
                         if (command.IsCustomCommand)
                         {
-                            if ((await _Server.CustomCommandHandler.GetCommandAsync(command.Name)).ResultValue is CustomCommand customCommand)
+                            if ((await _customCommandHandler.GetCommandAsync(command.Name)).ResultValue is { } customCommand)
                             {
                                 bodyBuilder.Append($" | {customCommand.CostsToString()}");
 
@@ -478,14 +477,14 @@ namespace GeistDesWaldes.CommandMeta
                     return CustomRuntimeResult<CommandMetaInfo[]>.FromError(taskResult.Reason);
 
                 //Since it is no struct, create copy manually
-                CommandMetaInfo command = new CommandMetaInfo(taskResult.ResultValue);
+                CommandMetaInfo command = new(taskResult.ResultValue);
 
                 if (!command.IsCustomCommand)
                 {
-                    Discord.Commands.CommandInfo commandInfo = null;
+                    CommandInfo commandInfo = null;
 
                     // Find matching commandservice commandinfo
-                    foreach (var ci in _Server.CommandService.Commands)
+                    foreach (var ci in Server.CommandService.Commands)
                     {
                         if (ci.Parameters.Count != command.Parameters.Count)
                             continue;
@@ -538,7 +537,7 @@ namespace GeistDesWaldes.CommandMeta
                     if (commandInfo == null)
                         return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_DISCORD_COMMAND_INFO_FOR_COMMAND_NAMED_X, "{x}", command.FullName)}");
 
-                    var preconditionCheckResult = await commandInfo.CheckPreconditionsAsync(context, _Server.Services);
+                    var preconditionCheckResult = await commandInfo.CheckPreconditionsAsync(context, Server.Services);
                     if (!preconditionCheckResult.IsSuccess)
                         return CustomRuntimeResult<CommandMetaInfo[]>.FromError(preconditionCheckResult.ErrorReason);
 
@@ -658,7 +657,7 @@ namespace GeistDesWaldes.CommandMeta
             List<string> lines = new List<string>();
             StringBuilder bodyBuilder = new StringBuilder();
 
-            foreach (CommandMetaInfo command in FactoryCommands)
+            foreach (CommandMetaInfo command in _factoryCommands)
             {
                 string s = await GetCommandInfoStringAsync(command);
                 if (lines.Contains(s))
@@ -675,7 +674,7 @@ namespace GeistDesWaldes.CommandMeta
                 .SetDescription(bodyBuilder.ToString());
 
             FactoryCommandHelpMessage.Contents.Add(cmdMsgContent);
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
 
 
             //CUSTOM            
@@ -683,7 +682,7 @@ namespace GeistDesWaldes.CommandMeta
             CustomCommandHelpMessage = new ChannelMessage(null).SetTemplate(ChannelMessage.MessageTemplateOption.Information);
             cmdMsgContent = new ChannelMessageContent().SetTitle("Custom Commands");
 
-            if (CustomCommands.Count == 0)
+            if (_customCommands.Count == 0)
             {
                 cmdMsgContent = cmdMsgContent.SetDescription("-");
                 CustomCommandHelpMessage.AddContent(cmdMsgContent);
@@ -692,16 +691,16 @@ namespace GeistDesWaldes.CommandMeta
 
             string currCategory = "undefined";
 
-            for (int i = 0; i < CustomCommands.Count; i++)
+            for (int i = 0; i < _customCommands.Count; i++)
             {
-                if (!((await _Server.CustomCommandHandler.GetCommandAsync(CustomCommands[i].Name)).ResultValue is CustomCommand cuco))
+                if (!((await _customCommandHandler.GetCommandAsync(_customCommands[i].Name)).ResultValue is { } cuco))
                     continue;
 
                 string catName = (cuco.Category != null ? cuco.Category.Name : "undefined");
 
                 if (catName.Equals(currCategory, StringComparison.OrdinalIgnoreCase))
                 {
-                    bodyBuilder.Append($"{await GetCommandInfoStringAsync(CustomCommands[i])} | ");
+                    bodyBuilder.Append($"{await GetCommandInfoStringAsync(_customCommands[i])} | ");
                     continue;
                 }
 
@@ -711,7 +710,7 @@ namespace GeistDesWaldes.CommandMeta
                     cmdMsgContent = cmdMsgContent.SetDescription("-");
 
                 CustomCommandHelpMessage.Contents.Add(cmdMsgContent);
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
 
                 currCategory = catName;
                 cmdMsgContent = new ChannelMessageContent().SetTitle(currCategory);
@@ -727,7 +726,7 @@ namespace GeistDesWaldes.CommandMeta
                 cmdMsgContent = cmdMsgContent.SetDescription("-");
 
             CustomCommandHelpMessage.Contents.Add(cmdMsgContent);
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(CreateHelpListStringsAsync), cmdMsgContent.ToString()));
         }
 
         private static Task<ParameterInfoCollection[]> GetParameterInfosAsync(CommandMetaInfo command)
@@ -786,16 +785,16 @@ namespace GeistDesWaldes.CommandMeta
             StringBuilder builder = new();
 
             builder.AppendLine("Custom Commands".AsMarkdown(MarkdownOption.H1));
-            builder.AppendLine($"Dynamic commands for the '{_Server.Config.TwitchSettings.TwitchChannelName}'/'{_Server.RuntimeConfig.GuildName}' twitch/discord channels.".AsMarkdown(MarkdownOption.Italic));
+            builder.AppendLine($"Dynamic commands for the '{Server.Config.TwitchSettings.TwitchChannelName}'/'{Server.RuntimeConfig.GuildName}' twitch/discord channels.".AsMarkdown(MarkdownOption.Italic));
             builder.AppendLine();
 
             string currentCategory = string.Empty;
 
-            for (int i = 0; i < CustomCommands.Count; i++)
+            for (int i = 0; i < _customCommands.Count; i++)
             {
-                CustomRuntimeResult<CustomCommand> getCommandResult = await _Server.CustomCommandHandler.GetCommandAsync(CustomCommands[i].Name);
+                CustomRuntimeResult<CustomCommand> getCommandResult = await _customCommandHandler.GetCommandAsync(_customCommands[i].Name);
 
-                if (getCommandResult.IsSuccess && getCommandResult.ResultValue is CustomCommand customCommand)
+                if (getCommandResult.IsSuccess && getCommandResult.ResultValue is { } customCommand)
                 {
                     string cmdCat = customCommand.Category?.Name ?? "No Category";
 
@@ -818,17 +817,17 @@ namespace GeistDesWaldes.CommandMeta
                             priceTag = customCommand.Category.PriceTag;
                     }
 
-                    AppendCommandInfo(builder, true, CustomCommands[i], cooldownInSeconds, priceTag, customCommand.ActionsToArray(), null, null);
+                    AppendCommandInfo(builder, true, _customCommands[i], cooldownInSeconds, priceTag, customCommand.ActionsToArray(), null, null);
 
                     builder.AppendLine();
                 }
                 else
                 {
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(ExportCustomCommandInfoPage), $"Could not get Custom Command: {getCommandResult.Reason}"));
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(ExportCustomCommandInfoPage), $"Could not get Custom Command: {getCommandResult.Reason}"));
                 }
             }
 
-            await HTMLSerializer.SaveTextToFile(builder, _Server.ServerFilesDirectoryPath, CUSTOM_COMMAND_MANUAL_FILE_NAME);
+            await HTMLSerializer.SaveTextToFile(builder, Server.ServerFilesDirectoryPath, CUSTOM_COMMAND_MANUAL_FILE_NAME);
         }
 
         private async Task ExportFactoryCommandInfoPage()
@@ -841,9 +840,9 @@ namespace GeistDesWaldes.CommandMeta
 
             string currentGroup = string.Empty;
 
-            for (int i = 0; i < FactoryCommands.Count; i++)
+            for (int i = 0; i < _factoryCommands.Count; i++)
             {
-                string cmdGroup = FactoryCommands[i].Groups.Count > 0 ? FactoryCommands[i].Groups[0] : FactoryCommands[i].Name;
+                string cmdGroup = _factoryCommands[i].Groups.Count > 0 ? _factoryCommands[i].Groups[0] : _factoryCommands[i].Name;
 
                 if (cmdGroup != currentGroup)
                 {
@@ -855,29 +854,29 @@ namespace GeistDesWaldes.CommandMeta
                 float cooldownDuration = 0f;
                 int priceTagAmount = 0;
 
-                var cooldownPrecondition = (CommandCooldown)FactoryCommands[i].Preconditions.FirstOrDefault(p => p.GetType() == typeof(CommandCooldown));
+                var cooldownPrecondition = (CommandCooldown)_factoryCommands[i].Preconditions.FirstOrDefault(p => p.GetType() == typeof(CommandCooldown));
                 if (cooldownPrecondition != default)
                     cooldownDuration = cooldownPrecondition.CooldownInSeconds;
 
-                var feePrecondition = (CommandFee)FactoryCommands[i].Preconditions.FirstOrDefault(c => c.GetType() == typeof(CommandFee));
+                var feePrecondition = (CommandFee)_factoryCommands[i].Preconditions.FirstOrDefault(c => c.GetType() == typeof(CommandFee));
                 if (feePrecondition != default)
                     priceTagAmount = feePrecondition.PriceTag;
 
-                ParameterInfoCollection[] parameterInfos = await GetParameterInfosAsync(FactoryCommands[i]);
-                PreconditionAttribute[] preconditions = FactoryCommands[i].Preconditions.ToArray();
+                ParameterInfoCollection[] parameterInfos = await GetParameterInfosAsync(_factoryCommands[i]);
+                PreconditionAttribute[] preconditions = _factoryCommands[i].Preconditions.ToArray();
 
-                AppendCommandInfo(builder, false, FactoryCommands[i], cooldownDuration, priceTagAmount, null, parameterInfos, preconditions);
+                AppendCommandInfo(builder, false, _factoryCommands[i], cooldownDuration, priceTagAmount, null, parameterInfos, preconditions);
 
                 builder.AppendLine();
             }
 
-            await HTMLSerializer.SaveTextToFile(builder, _Server.ServerFilesDirectoryPath, FACTORY_COMMAND_MANUAL_FILE_NAME);
+            await HTMLSerializer.SaveTextToFile(builder, Server.ServerFilesDirectoryPath, FACTORY_COMMAND_MANUAL_FILE_NAME);
         }
 
 
         private void AppendCommandInfo(StringBuilder builder, bool isCustomCommand, CommandMetaInfo command, float cooldownDuration, int priceTagAmount, string[] actions, ParameterInfoCollection[] parameterInfos, PreconditionAttribute[] preconditions)
         {
-            builder.AppendLine($"{_Server.Config.GeneralSettings.CommandPrefix}{command.FullName} | {Utility.CreateCostsString(cooldownDuration, priceTagAmount)}".AsMarkdown(MarkdownOption.H3));
+            builder.AppendLine($"{Server.Config.GeneralSettings.CommandPrefix}{command.FullName} | {Utility.CreateCostsString(cooldownDuration, priceTagAmount)}".AsMarkdown(MarkdownOption.H3));
             builder.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(command.Summary))

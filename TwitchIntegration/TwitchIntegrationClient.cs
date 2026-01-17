@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GeistDesWaldes.Attributes;
+using GeistDesWaldes.Currency;
 using GeistDesWaldes.Misc;
 using TwitchLib.Api.Core.Enums;
 using TwitchLib.Api.Helix.Models.Games;
@@ -158,7 +159,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 if (string.IsNullOrWhiteSpace(channelId))
                     throw new ArgumentNullException(nameof(channelId));
                 
-                TwitchIntegrationHandler.LogToMain($"[{channelName}]{nameof(Start)}", $"Started {nameof(TwitchIntegrationClient)}", LogSeverity.Info);
+                TwitchIntegrationHandler.LogToMain($"[{channelName}]{nameof(Start)}", $"Started {nameof(TwitchIntegrationClient)}");
 
                 ChannelName = channelName;
                 ChannelId = channelId;
@@ -269,7 +270,7 @@ namespace GeistDesWaldes.TwitchIntegration
         {
             _cancelConnectionVerificationSource = new CancellationTokenSource();
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(ConnectionVerificationLoop)}", $"Started.", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(ConnectionVerificationLoop)}", $"Started.");
 
             try
             {
@@ -360,7 +361,7 @@ namespace GeistDesWaldes.TwitchIntegration
         private async Task OnWebsocketConnected(object sender, WebsocketConnectedArgs e)
         {
             _connectionStatus.EventSubConnected = true;
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketConnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' connected!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketConnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' connected!");
 
             if (e.IsRequestedReconnect)
                 return;
@@ -388,7 +389,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 {
                     TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(CreateEventSubscriptionsAsync)}", $"Requesting '{subType}' v. {version}", LogSeverity.Debug);
                     
-                    await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.EventSub.CreateEventSubSubscriptionAsync(subType, version, condition, EventSubTransportMethod.Websocket, _eventSubWebsocketClient.SessionId));
+                    await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.EventSub.CreateEventSubSubscriptionAsync(subType, version, condition, EventSubTransportMethod.Websocket, _eventSubWebsocketClient.SessionId));
                 }
                 catch (Exception ex)
                 {
@@ -405,7 +406,7 @@ namespace GeistDesWaldes.TwitchIntegration
         {
             _connectionStatus.EventSubConnected = false;
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketDisconnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' disconnected!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketDisconnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' disconnected!");
 
             return Task.CompletedTask;
         }
@@ -413,7 +414,7 @@ namespace GeistDesWaldes.TwitchIntegration
         private Task OnWebsocketReconnected(object sender, EventArgs e)
         {
             _connectionStatus.EventSubConnected = true;
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketReconnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' reconnected!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketReconnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' reconnected!");
             
             return Task.CompletedTask;
         }
@@ -477,9 +478,9 @@ namespace GeistDesWaldes.TwitchIntegration
 
         private async Task HandleUserIntro(ConfigStreamEntity entity, string userName)
         {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(HandleUserIntro)}", $"User: {userName}", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(HandleUserIntro)}", $"User: {userName}");
                         
-            CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnUserIntro);
+            CustomRuntimeResult<CustomCommand> callback = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnUserIntro);
 
             if (callback.IsSuccess && callback.ResultValue is { } command)
                 await command.Execute(null, [userName]);
@@ -515,7 +516,7 @@ namespace GeistDesWaldes.TwitchIntegration
             string userName = followPayload?.UserName ?? "NULL";
             string userId = followPayload?.UserId;
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelFollow)}", $"'{userName}' just followed!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelFollow)}", $"'{userName}' just followed!");
 
             if (userId == null)
                 return Task.CompletedTask;
@@ -541,7 +542,7 @@ namespace GeistDesWaldes.TwitchIntegration
             }
             else
             {
-                CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnFollow);
+                CustomRuntimeResult<CustomCommand> callback = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnFollow);
 
                 if (callback.IsSuccess && callback.ResultValue is { } command)
                     await command.Execute(null, [ userName ]);
@@ -572,7 +573,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
         private async Task NotifyChannelRaid(ConfigStreamEntity entity, string fromUserName, string viewerCount)
         {
-            CustomRuntimeResult<CustomCommand> callback = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnRaid);
+            CustomRuntimeResult<CustomCommand> callback = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnRaid);
 
             if (callback.IsSuccess && callback.ResultValue is { } command)
                 await command.Execute(null, [ fromUserName, viewerCount ]);
@@ -587,7 +588,7 @@ namespace GeistDesWaldes.TwitchIntegration
             string tier = subPayload?.Tier ?? "NULL";
             bool isGift = subPayload?.IsGift ?? false;
 
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelSubscribe)}", $"User '{userName}' just {(isGift ? "subscribed" : "was gifted")} via '{tier}'!", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(EventSub_OnChannelSubscribe)}", $"User '{userName}' just {(isGift ? "subscribed" : "was gifted")} via '{tier}'!");
             
             return Task.CompletedTask;
         }
@@ -612,7 +613,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
         private Task NotifyStreamUpdate()
         {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamUpdate)}", $"[{ChannelName}] Stream Updated! {StreamInfo}", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamUpdate)}", $"[{ChannelName}] Stream Updated! {StreamInfo}");
             
             foreach ((ServerConfiguration _, ConfigStreamEntity entity) in _configStreamEntities)
             {
@@ -624,7 +625,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
         private async Task NotifyStreamUpdate(ConfigStreamEntity entity)
         {
-            if ((await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
+            if ((await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamUpdate)).ResultValue is { } callback)
                 await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
         }
         
@@ -651,7 +652,7 @@ namespace GeistDesWaldes.TwitchIntegration
         
         private async Task NotifyStreamOnline()
         {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOnline)}", $"[{ChannelName}] Stream is Online! {StreamInfo}", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOnline)}", $"[{ChannelName}] Stream is Online! {StreamInfo}");
 
             TwitchLib.Api.Helix.Models.Games.Game game = null;
 
@@ -659,7 +660,7 @@ namespace GeistDesWaldes.TwitchIntegration
             {
                 try
                 {
-                    GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Games.GetGamesAsync([StreamInfo.Category]));
+                    GetGamesResponse gameMatches = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Games.GetGamesAsync([StreamInfo.Category]));
                     
                     if (gameMatches.Games?.Length > 0)
                         game = gameMatches.Games[0];
@@ -686,7 +687,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
             string lastChangeString = StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo);
                     
-            var callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStart);
+            var callbackResult = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStart);
             if (callbackResult.IsSuccess)
             {
                 if (callbackResult.ResultValue is { } callback)
@@ -695,7 +696,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
             if (minutesSinceLastChange < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
             {
-                callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
+                callbackResult = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamStartOneShot);
                     
                 if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
                     await callback.Execute(null, [ titleName, gameName, lastChangeString ]);
@@ -717,7 +718,7 @@ namespace GeistDesWaldes.TwitchIntegration
         
         private Task NotifyStreamOffline()
         {
-            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOffline)}", $"Stream is Offline! {StreamInfo}", LogSeverity.Info);
+            TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(NotifyStreamOffline)}", $"Stream is Offline! {StreamInfo}");
 
             foreach ((ServerConfiguration config, ConfigStreamEntity entity) in _configStreamEntities)
             {
@@ -732,7 +733,7 @@ namespace GeistDesWaldes.TwitchIntegration
             entity.ClearActiveChatters();
             entity.IntervalActionWatchdog.Stop();
 
-            CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
+            CustomRuntimeResult<CustomCommand> callbackResult = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEnd);
             
             if (callbackResult.IsSuccess)
             {
@@ -742,7 +743,7 @@ namespace GeistDesWaldes.TwitchIntegration
 
             if (StreamInfo.TimeSinceLastChange.TotalMinutes < config.TwitchSettings.LivestreamOneShotWindowInMinutes)
             {
-                callbackResult = await entity.Server.UserCallbackHandler.GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
+                callbackResult = await entity.Server.GetModule<UserCallbackHandler>().GetCallbackCommand(UserCallbackDictionary.TwitchCallbackTypes.OnStreamEndOneShot);
                 
                 if (callbackResult.IsSuccess && callbackResult.ResultValue is { } callback)
                     await callback.Execute(null, [ StreamInfo.Title, StreamInfo.Category, StreamInfo.LastChange.ToString(entity.Server.RuntimeConfig.CultureInfo) ]);
@@ -821,7 +822,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 Server = server;
                 _config = config;
 
-                IntervalActionWatchdog = new TwitchLivestreamIntervalActionWatchdog(config, server.TwitchLivestreamIntervalActionHandler);
+                IntervalActionWatchdog = new TwitchLivestreamIntervalActionWatchdog(server, config);
             }
 
 
@@ -874,7 +875,7 @@ namespace GeistDesWaldes.TwitchIntegration
             {
                 try
                 {
-                    await Server.ForestUserHandler.GetOrCreateUser(twitchId: userId);
+                    await Server.GetModule<ForestUserHandler>().GetOrCreateUser(twitchId: userId);
 
                     lock (_activeChattersLocker)
                     {
@@ -912,13 +913,13 @@ namespace GeistDesWaldes.TwitchIntegration
             }
             private async Task UpdateTwitchPoints()
             {
-                GetUsersResponse response = await TwitchIntegrationHandler.ValidatedAPICall(TwitchIntegrationHandler.Instance.API.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(_config.TwitchSettings.TwitchChannelName)));
+                GetUsersResponse response = await TwitchIntegrationHandler.ValidatedApiCall(TwitchIntegrationHandler.Instance.Api.Helix.Users.GetUsersAsync(logins: await TwitchIntegrationHandler.GetChattersForChannel(_config.TwitchSettings.TwitchChannelName)));
 
                 // Points for broadcaster channel
                 User broadcaster = ConfigurationHandler.RuntimeConfig[_config.GuildId].ChannelOwner;
                 if (broadcaster != null)
                 {
-                    var getChannelUserResult = await Server.ForestUserHandler.GetUser(twitchId: broadcaster.Id);
+                    var getChannelUserResult = await Server.GetModule<ForestUserHandler>().GetUser(twitchId: broadcaster.Id);
 
                     if (getChannelUserResult.IsSuccess)
                         await AddPointsToUser(getChannelUserResult.ResultValue);
@@ -927,7 +928,7 @@ namespace GeistDesWaldes.TwitchIntegration
                 }
 
                 // Points for viewers
-                ForestUser[] existingUsers = await Server.ForestUserHandler.GetUsers(response.Users.Select(u => u.Id).ToArray());
+                ForestUser[] existingUsers = await Server.GetModule<ForestUserHandler>().GetUsers(response.Users.Select(u => u.Id).ToArray());
                 foreach (ForestUser forestUser in existingUsers)
                 {
                     try
@@ -957,7 +958,7 @@ namespace GeistDesWaldes.TwitchIntegration
                         totalPoints += _config.TwitchSettings.TwitchPointsBonusForActiveChatters;
                 }
 
-                await Server.CurrencyHandler.AddCurrencyToUser(user, totalPoints);
+                await Server.GetModule<CurrencyHandler>().AddCurrencyToUser(user, totalPoints);
             }
 
             public void ClearActiveChatters()

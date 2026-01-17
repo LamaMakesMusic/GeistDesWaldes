@@ -29,7 +29,7 @@ namespace GeistDesWaldes.Calendar
             }
         }
 
-        private Task _holidayWatchdog = null;
+        private Task _holidayWatchdog;
         private CancellationTokenSource _cancelWatchdogSource;
 
         private const string HOLIDAYBEHAVIOURS_FILE_NAME = "HolidayBehaviours";
@@ -40,28 +40,28 @@ namespace GeistDesWaldes.Calendar
             _behaviourDictionary = new HolidayBehaviourDictionary();
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeHolidayHandler().SafeAsync<HolidayHandler>(_Server.LogHandler, StartHolidayWatchdog);
+            await base.OnServerStartUp();
+            await InitializeHolidayHandler();
+            StartHolidayWatchdog();
         }
-        internal override void OnServerShutdown(object source, EventArgs e)
+        
+        public override async Task OnServerShutdown()
         {
-            base.OnServerShutdown(source, e);
-
+            await base.OnServerShutdown();
             _cancelWatchdogSource?.Cancel();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<HolidayHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializeHolidayHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, HOLIDAYBEHAVIOURS_FILE_NAME, _behaviourDictionary);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, HOLIDAYBEHAVIOURS_FILE_NAME, _behaviourDictionary);
 
             await LoadHolidayBehavioursFromFile();
         }        
@@ -100,7 +100,7 @@ namespace GeistDesWaldes.Calendar
                         if (string.IsNullOrWhiteSpace(command.Name))
                             subBuilder.Append(" | missing name");
 
-                        var testResult = await command.TestCommandExecution(_Server.CommandService, _Server.Services);
+                        var testResult = await command.TestCommandExecution(Server.CommandService, Server.Services);
 
                         if (!testResult.IsSuccess)
                             subBuilder.Append(" | Commands ERROR:\n").AppendLine($"..........{testResult.Reason}");
@@ -121,10 +121,10 @@ namespace GeistDesWaldes.Calendar
                 for (int i = 0; i < problematicEntries.Count; i++)
                     builder.AppendLine(problematicEntries[i]);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Holiday Behaviours OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Holiday Behaviours OK."), (int)ConsoleColor.DarkGreen);
         }
         
         private void StartHolidayWatchdog()
@@ -138,7 +138,7 @@ namespace GeistDesWaldes.Calendar
         {
             _cancelWatchdogSource = new CancellationTokenSource();
 
-            await _Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(HolidayWatchdog), "Started."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(HolidayWatchdog), "Started."));
 
             try
             {
@@ -153,7 +153,7 @@ namespace GeistDesWaldes.Calendar
 
                     if (GermanHolidays.IsPublicHoliday(DateTime.Now) && GermanHolidays.PublicHolidayNames(DateTime.Now.Year).TryGetValue(DateTime.Today, out _behaviourDictionary.ActiveHoliday))
                     {
-                        await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(HolidayWatchdog), $"Daily Watchdog found holiday: {_behaviourDictionary.ActiveHoliday}"), (int)ConsoleColor.Cyan);
+                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(HolidayWatchdog), $"Daily Watchdog found holiday: {_behaviourDictionary.ActiveHoliday}"), (int)ConsoleColor.Cyan);
 
                         await InvokeHolidayBehaviour(_behaviourDictionary.ActiveHoliday, HolidayBehaviour.BehaviourAction.StartCallback);
                     }
@@ -163,7 +163,7 @@ namespace GeistDesWaldes.Calendar
                     DateTime midnight = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 1).AddDays(1);
                     TimeSpan difference = midnight.Subtract(DateTime.Now);
 
-                    await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(HolidayWatchdog), $"Daily Watchdog called. Next call in: {difference}"), (int)ConsoleColor.Cyan);
+                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(HolidayWatchdog), $"Daily Watchdog called. Next call in: {difference}"), (int)ConsoleColor.Cyan);
 
                     await Task.Delay(difference, _cancelWatchdogSource.Token);
                 }
@@ -177,7 +177,7 @@ namespace GeistDesWaldes.Calendar
                 _holidayWatchdog = null;
                 _cancelWatchdogSource = null;
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(HolidayWatchdog), "Stopped."));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(HolidayWatchdog), "Stopped."));
             }
         }
         private async Task InvokeHolidayBehaviour(string holidayName, HolidayBehaviour.BehaviourAction actionType)
@@ -249,7 +249,7 @@ namespace GeistDesWaldes.Calendar
                 var holidayDate = allHolidays.FirstOrDefault(h => h.Value.Equals(holidayName, StringComparison.OrdinalIgnoreCase));
 
                 if (holidayDate.Key != default && holidayDate.Value != default)
-                    result = new HolidayBehaviour(_Server, holidayDate.Value, holidayDate.Key);
+                    result = new HolidayBehaviour(Server, holidayDate.Value, holidayDate.Key);
             }
 
             if (result != default)
@@ -268,14 +268,14 @@ namespace GeistDesWaldes.Calendar
                 if (actionType == HolidayBehaviour.BehaviourAction.StartCallback)
                 {
                     if (callback == null)
-                        newBehaviour.StartCallback = new CustomCommand(_Server, nameof(HolidayBehaviour.BehaviourAction.StartCallback), null, 0);
+                        newBehaviour.StartCallback = new CustomCommand(Server, nameof(HolidayBehaviour.BehaviourAction.StartCallback), null, 0);
                     else
                         newBehaviour.StartCallback = callback;
                 }
                 else
                 {
                     if (callback == null)
-                        newBehaviour.EndCallback = new CustomCommand(_Server, nameof(HolidayBehaviour.BehaviourAction.EndCallback), null, 0);
+                        newBehaviour.EndCallback = new CustomCommand(Server, nameof(HolidayBehaviour.BehaviourAction.EndCallback), null, 0);
                     else
                         newBehaviour.EndCallback = callback;
                 }
@@ -301,16 +301,14 @@ namespace GeistDesWaldes.Calendar
         {
             _behaviourDictionary.Behaviours.Sort((b1, b2) => b1.HolidayDate.CompareTo(b2.HolidayDate));
 
-            return GenericXmlSerializer.SaveAsync<HolidayBehaviourDictionary>(_Server.LogHandler, _behaviourDictionary, HOLIDAYBEHAVIOURS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<HolidayBehaviourDictionary>(Server.LogHandler, _behaviourDictionary, HOLIDAYBEHAVIOURS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadHolidayBehavioursFromFile()
         {
-            HolidayBehaviourDictionary loadedDictionary = null;
+            HolidayBehaviourDictionary loadedDictionary = await GenericXmlSerializer.LoadAsync<HolidayBehaviourDictionary>(Server.LogHandler, HOLIDAYBEHAVIOURS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            loadedDictionary = await GenericXmlSerializer.LoadAsync<HolidayBehaviourDictionary>(_Server.LogHandler, HOLIDAYBEHAVIOURS_FILE_NAME, _Server.ServerFilesDirectoryPath);
-
-            if (loadedDictionary == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadHolidayBehavioursFromFile), $"Loaded {nameof(loadedDictionary)} == DEFAULT"));
+            if (loadedDictionary == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadHolidayBehavioursFromFile), $"Loaded {nameof(loadedDictionary)} == DEFAULT"));
             else
                 _behaviourDictionary = loadedDictionary;
 
@@ -320,8 +318,8 @@ namespace GeistDesWaldes.Calendar
             {
                 behaviour.SetHolidayName(behaviour.HolidayName);
 
-                behaviour.StartCallback?.InitAfterLoadFromFile(_Server);
-                behaviour.EndCallback?.InitAfterLoadFromFile(_Server);
+                behaviour.StartCallback?.InitAfterLoadFromFile(Server);
+                behaviour.EndCallback?.InitAfterLoadFromFile(Server);
             }
         }
     }

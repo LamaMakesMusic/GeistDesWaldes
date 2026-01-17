@@ -3,6 +3,7 @@ using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Misc;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using static GeistDesWaldes.UserCommands.UserCallbackDictionary;
 
@@ -20,32 +21,31 @@ namespace GeistDesWaldes.UserCommands
             UserCallbacks = new UserCallbackDictionary(server);
         }
 
-        internal override void OnServerStart(object source, EventArgs e)
+        public override async Task OnServerStartUp()
         {
-            base.OnServerStart(source, e);
-
-            InitializeUserCallbackHandler().SafeAsync<UserCallbackHandler>(_Server.LogHandler);
+            await base.OnServerStartUp();
+            await InitializeUserCallbackHandler();
         }
-        internal override void OnCheckIntegrity(object source, EventArgs e)
+        
+        public override async Task OnCheckIntegrity()
         {
-            base.OnCheckIntegrity(source, e);
-
-            CheckIntegrity().SafeAsync<UserCallbackHandler>(_Server.LogHandler);
+            await base.OnCheckIntegrity();
+            await CheckIntegrity();
         }
 
         private async Task InitializeUserCallbackHandler()
         {
-            await GenericXmlSerializer.EnsurePathExistance(_Server.LogHandler, _Server.ServerFilesDirectoryPath, USERCALLBACKS_FILE_NAME, UserCallbacks);
+            await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, USERCALLBACKS_FILE_NAME, UserCallbacks);
             await LoadUserCallbacksFromFile();
         }
         private async Task CheckIntegrity()
         {
-            List<string> problematicEntries = new List<string>();
+            List<string> problematicEntries = new();
 
             int idx = 0;
-            foreach (var command in UserCallbacks.Callbacks)
+            foreach (CustomCommand command in UserCallbacks.Callbacks)
             {
-                var builder = new System.Text.StringBuilder($"...[{idx}]");
+                StringBuilder builder = new($"...[{idx}]");
                 int startLength = builder.Length;
 
                 if (command == null)
@@ -55,7 +55,7 @@ namespace GeistDesWaldes.UserCommands
                     if (string.IsNullOrWhiteSpace(command.Name))
                         builder.Append(" | missing name");
 
-                    var testResult = await command.TestCommandExecution(_Server.CommandService, _Server.Services);
+                    CustomRuntimeResult testResult = await command.TestCommandExecution(Server.CommandService, Server.Services);
 
                     if (!testResult.IsSuccess)
                         builder.Append(" | Commands ERROR:\n").AppendLine($"......{testResult.Reason}");
@@ -70,38 +70,38 @@ namespace GeistDesWaldes.UserCommands
 
             if (problematicEntries.Count > 0)
             {
-                var builder = new System.Text.StringBuilder("User Callbacks ERROR:\n");
+                StringBuilder builder = new("User Callbacks ERROR:\n");
 
                 for (int i = 0; i < problematicEntries.Count; i++)
                     builder.AppendLine(problematicEntries[i]);
 
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(CheckIntegrity), builder.ToString()));
             }
             else
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "User Callbacks OK."), (int)ConsoleColor.DarkGreen);
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "User Callbacks OK."), (int)ConsoleColor.DarkGreen);
         }
 
         public Task SaveUserCallbacksToFile()
         {
-            UserCallbacks.Callbacks.Sort((c1,c2) => c1.Name.CompareTo(c2.Name));
+            UserCallbacks.Callbacks.Sort((c1,c2) => string.Compare(c1.Name, c2.Name, StringComparison.Ordinal));
 
-            return GenericXmlSerializer.SaveAsync<UserCallbackDictionary>(_Server.LogHandler, UserCallbacks, USERCALLBACKS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            return GenericXmlSerializer.SaveAsync<UserCallbackDictionary>(Server.LogHandler, UserCallbacks, USERCALLBACKS_FILE_NAME, Server.ServerFilesDirectoryPath);
         }
         public async Task LoadUserCallbacksFromFile()
         {
-            UserCallbackDictionary loadedDictionary =  await GenericXmlSerializer.LoadAsync<UserCallbackDictionary>(_Server.LogHandler, USERCALLBACKS_FILE_NAME, _Server.ServerFilesDirectoryPath);
+            UserCallbackDictionary loadedDictionary =  await GenericXmlSerializer.LoadAsync<UserCallbackDictionary>(Server.LogHandler, USERCALLBACKS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-            if (loadedDictionary == default)
-                await _Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadUserCallbacksFromFile), $"Loaded {nameof(UserCallbackDictionary)} == DEFAULT"));
+            if (loadedDictionary == null)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadUserCallbacksFromFile), $"Loaded {nameof(UserCallbackDictionary)} == DEFAULT"));
             else
                 UserCallbacks = loadedDictionary;
 
-            UserCallbacks._Server = _Server;
+            UserCallbacks._Server = Server;
 
             //Ensure Name Hash for externally added Callbacks/Commands
             foreach (var callback in UserCallbacks.Callbacks)
             {
-                callback?.InitAfterLoadFromFile(_Server);
+                callback?.InitAfterLoadFromFile(Server);
             }
             
             UserCallbacks.AddMissingEntries();
@@ -137,18 +137,18 @@ namespace GeistDesWaldes.UserCommands
 
         public async Task<CustomRuntimeResult> SetCallback(DiscordCallbackTypes type, CustomCommand customCommand)
         {
-            var commandResult = await GetCallbackCommand(type);
+            CustomRuntimeResult<CustomCommand> commandResult = await GetCallbackCommand(type);
 
             if (commandResult.IsSuccess)
             {
                 if (customCommand == null)
                 {
-                    commandResult.ResultValue.TextChannelContextID = default;
+                    commandResult.ResultValue.TextChannelContextId = 0;
                     commandResult.ResultValue.CommandsToExecute = null;
                 }
                 else
                 {
-                    commandResult.ResultValue.TextChannelContextID = customCommand.TextChannelContextID;
+                    commandResult.ResultValue.TextChannelContextId = customCommand.TextChannelContextId;
                     commandResult.ResultValue.CommandsToExecute = customCommand.CommandsToExecute;
                 }
 
@@ -160,27 +160,26 @@ namespace GeistDesWaldes.UserCommands
         }
         public async Task<CustomRuntimeResult> SetCallback(TwitchCallbackTypes type, CustomCommand customCommand)
         {
-            var commandResult = await GetCallbackCommand(type);
+            CustomRuntimeResult<CustomCommand> commandResult = await GetCallbackCommand(type);
 
             if (commandResult.IsSuccess)
             {
                 if (customCommand == null)
                 {
-                    commandResult.ResultValue.TextChannelContextID = default;
+                    commandResult.ResultValue.TextChannelContextId = 0;
                     commandResult.ResultValue.CommandsToExecute = null;
                 }
                 else
                 {
-                    commandResult.ResultValue.TextChannelContextID = customCommand.TextChannelContextID;
+                    commandResult.ResultValue.TextChannelContextId = customCommand.TextChannelContextId;
                     commandResult.ResultValue.CommandsToExecute = customCommand.CommandsToExecute;
                 }
 
                 await SaveUserCallbacksToFile();
                 return CustomRuntimeResult.FromSuccess();
             }
-            else
-                return CustomRuntimeResult.FromError(commandResult.Reason);
+            
+            return CustomRuntimeResult.FromError(commandResult.Reason);
         }
-
     }
 }

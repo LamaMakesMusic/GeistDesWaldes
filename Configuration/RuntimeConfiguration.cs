@@ -68,7 +68,7 @@ namespace GeistDesWaldes.Configuration
                     if (string.IsNullOrWhiteSpace(channelName))
                         return null;
 
-                    var response = Task.Run(() => TwitchIntegrationHandler.ValidatedAPICall(Launcher.Instance.TwitchIntegrationHandler.API.Helix.Users.GetUsersAsync(logins: new List<string>() { channelName }))).GetAwaiter().GetResult();
+                    var response = Task.Run(() => TwitchIntegrationHandler.ValidatedApiCall(Launcher.Instance.TwitchIntegrationHandler.Api.Helix.Users.GetUsersAsync(logins: new List<string>() { channelName }))).GetAwaiter().GetResult();
 
                     if (response.Users.Length > 0)
                         _channelOwner = response.Users[0];
