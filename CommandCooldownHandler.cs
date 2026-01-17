@@ -1,102 +1,128 @@
-﻿using Discord;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.UserCommands;
-using System;
-using System.Collections.Concurrent;
-using System.Threading.Tasks;
 
-namespace GeistDesWaldes
+namespace GeistDesWaldes;
+
+public class CommandCooldownHandler : BaseHandler
 {
-    public class CommandCooldownHandler : BaseHandler
+    private readonly ConcurrentDictionary<string, long> _categoriesOnCooldown;
+    private readonly ConcurrentDictionary<string, long> _commandsOnCooldown; // ID - CooldownEndInTicks
+
+    public CommandCooldownHandler(Server server) : base(server)
     {
-        private ConcurrentDictionary<string, long> _commandsOnCooldown; // ID - CooldownEndInTicks
-        private ConcurrentDictionary<string, long> _categoriesOnCooldown;
+        _commandsOnCooldown = new ConcurrentDictionary<string, long>();
+        _categoriesOnCooldown = new ConcurrentDictionary<string, long>();
+    }
 
-        public CommandCooldownHandler(Server server) : base(server)
+
+    public Task<double> IsOnCooldown(CommandInfo command)
+    {
+        return Task.Run(async () =>
         {
-            _commandsOnCooldown = new ConcurrentDictionary<string, long>();
-            _categoriesOnCooldown = new ConcurrentDictionary<string, long>();
-        }
+            await UpdateCommandCooldown();
 
-
-        public Task<double> IsOnCooldown(CommandInfo command)
-        {
-            return Task.Run(async () =>
+            if (command != null && _commandsOnCooldown.TryGetValue(command.Name, out long ticks))
             {
-                await UpdateCommandCooldown();
-
-                if (command != null && _commandsOnCooldown.TryGetValue(command.Name, out long ticks))
+                // Is there still time that needs to pass?
+                if (DateTime.Now.Ticks < ticks)
                 {
-                    // Is there still time that needs to pass?
-                    if (DateTime.Now.Ticks < ticks)
-                        return new TimeSpan(ticks - DateTime.Now.Ticks).TotalSeconds;
+                    return new TimeSpan(ticks - DateTime.Now.Ticks).TotalSeconds;
                 }
+            }
 
-                return 0;
-            });
-        }
-        public Task<double> IsOnCooldown(CustomCommandCategory category)
+            return 0;
+        });
+    }
+
+    public Task<double> IsOnCooldown(CustomCommandCategory category)
+    {
+        return Task.Run(async () =>
         {
-            return Task.Run(async () =>
-            {
-                await UpdateCategoryCooldown();
+            await UpdateCategoryCooldown();
 
-                if (category != null && _categoriesOnCooldown.TryGetValue(category.Name, out long ticks))
+            if (category != null && _categoriesOnCooldown.TryGetValue(category.Name, out long ticks))
+            {
+                // Is there still time that needs to pass?
+                if (DateTime.Now.Ticks < ticks)
                 {
-                    // Is there still time that needs to pass?
-                    if (DateTime.Now.Ticks < ticks)
-                        return new TimeSpan(ticks - DateTime.Now.Ticks).TotalSeconds;
+                    return new TimeSpan(ticks - DateTime.Now.Ticks).TotalSeconds;
                 }
+            }
 
-                return 0;
-            });
-        }
+            return 0;
+        });
+    }
 
-        public async Task UpdateCommandCooldown()
+    public async Task UpdateCommandCooldown()
+    {
+        foreach (KeyValuePair<string, long> idTicksPair in _commandsOnCooldown)
         {
-            foreach (var idTicksPair in _commandsOnCooldown)
+            // Still on Cooldown?
+            if (DateTime.Now.Ticks < idTicksPair.Value)
             {
-                // Still on Cooldown?
-                if (DateTime.Now.Ticks < idTicksPair.Value)
-                    continue;
+                continue;
+            }
 
-                // Remove From Cooldown
-                if (_commandsOnCooldown.TryRemove(idTicksPair.Key, out long value))
-                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCommandCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
-                else
-                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCommandCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
+            // Remove From Cooldown
+            if (_commandsOnCooldown.TryRemove(idTicksPair.Key, out long value))
+            {
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCommandCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
+            }
+            else
+            {
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCommandCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
             }
         }
-        public async Task UpdateCategoryCooldown()
-        {
-            foreach (var idTicksPair in _categoriesOnCooldown)
-            {
-                // Still on Cooldown?
-                if (DateTime.Now.Ticks < idTicksPair.Value)
-                    continue;
+    }
 
-                // Remove From Cooldown
-                if (_categoriesOnCooldown.TryRemove(idTicksPair.Key, out long value))
-                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCategoryCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
-                else
-                    await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCategoryCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
+    public async Task UpdateCategoryCooldown()
+    {
+        foreach (KeyValuePair<string, long> idTicksPair in _categoriesOnCooldown)
+        {
+            // Still on Cooldown?
+            if (DateTime.Now.Ticks < idTicksPair.Value)
+            {
+                continue;
+            }
+
+            // Remove From Cooldown
+            if (_categoriesOnCooldown.TryRemove(idTicksPair.Key, out long value))
+            {
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(UpdateCategoryCooldown), $"Removed '{idTicksPair.Key}' from Cooldown."));
+            }
+            else
+            {
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(UpdateCategoryCooldown), $"Failed removing '{idTicksPair.Key}' from Cooldown."));
             }
         }
+    }
 
-        public async Task AddToCooldown(CommandInfo command, float durationInSeconds)
+    public async Task AddToCooldown(CommandInfo command, float durationInSeconds)
+    {
+        if (_commandsOnCooldown.TryAdd(command.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
         {
-            if (_commandsOnCooldown.TryAdd(command.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
-                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{command.Name}' to Cooldown."));
-            else
-                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{command.Name}' to Cooldown."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{command.Name}' to Cooldown."));
         }
-        public async Task AddToCooldown(CustomCommandCategory category, float durationInSeconds)
+        else
         {
-            if (category != null && _categoriesOnCooldown.TryAdd(category.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
-                await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{category.Name}' to Cooldown."));
-            else
-                await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{category.Name}' to Cooldown."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{command.Name}' to Cooldown."));
         }
+    }
 
+    public async Task AddToCooldown(CustomCommandCategory category, float durationInSeconds)
+    {
+        if (category != null && _categoriesOnCooldown.TryAdd(category.Name, DateTime.Now.AddSeconds(durationInSeconds).Ticks))
+        {
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(AddToCooldown), $"Added '{category.Name}' to Cooldown."));
+        }
+        else
+        {
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(AddToCooldown), $"Failed adding '{category.Name}' to Cooldown."));
+        }
     }
 }

@@ -6,240 +6,270 @@ using GeistDesWaldes.Configuration;
 using DiscordUser = Discord.Rest.RestUser;
 using TwitchUser = TwitchLib.Api.Helix.Models.Users.GetUsers.User;
 
-namespace GeistDesWaldes.Users
+namespace GeistDesWaldes.Users;
+
+[Serializable]
+public class ForestUser
 {
-    [Serializable]
-    public class ForestUser
+    private readonly object _lock = new();
+
+    private string _discordName;
+
+    private ulong _discordUserId;
+    private Guid _forestUserId;
+
+    private bool _isDirty;
+
+
+    private string _twitchName;
+
+    private string _twitchUserId;
+
+    private TimeSpan _twitchViewTime = TimeSpan.FromMinutes(1);
+
+    private int _wallet;
+    [XmlIgnore] public DateTime LastUpdate;
+
+    [XmlIgnore] public bool RequestUpdate;
+
+
+    public ForestUser()
     {
-        private Guid _forestUserId;
-        public Guid ForestUserId {
-            get {
-                return _forestUserId;
-            }
-            set {
-                lock (_lock)
-                {
-                    _forestUserId = value;
-                }
+    }
+
+    public ForestUser(Guid forestUserId, ulong discordId = default, string twitchId = default)
+    {
+        ForestUserId = forestUserId;
+
+        DiscordUserId = discordId;
+        TwitchUserId = twitchId;
+    }
+
+    public ForestUser(ForestUser clone)
+    {
+        ForestUserId = clone.ForestUserId;
+
+        DiscordName = clone.DiscordName;
+        DiscordUserId = clone.DiscordUserId;
+
+        TwitchName = clone.TwitchName;
+        TwitchUserId = clone.TwitchUserId;
+
+        Wallet = clone.Wallet;
+    }
+
+    public Guid ForestUserId
+    {
+        get => _forestUserId;
+        set
+        {
+            lock (_lock)
+            {
+                _forestUserId = value;
             }
         }
+    }
 
-        private string _discordName;
-        public string DiscordName {
-            get {
+    public string DiscordName
+    {
+        get => _discordName;
+        set
+        {
+            lock (_lock)
+            {
+                _discordName = value;
+            }
+        }
+    }
+
+    public ulong DiscordUserId
+    {
+        get => _discordUserId;
+        set
+        {
+            lock (_lock)
+            {
+                _discordUserId = value;
+            }
+        }
+    }
+
+    public string TwitchName
+    {
+        get => _twitchName;
+        set
+        {
+            lock (_lock)
+            {
+                _twitchName = value;
+            }
+        }
+    }
+
+    public string TwitchUserId
+    {
+        get => _twitchUserId;
+        set
+        {
+            lock (_lock)
+            {
+                _twitchUserId = value;
+            }
+        }
+    }
+
+    public TimeSpan TwitchViewTime
+    {
+        get => _twitchViewTime;
+        set => _twitchViewTime = value;
+    }
+
+    public int Wallet
+    {
+        get => _wallet;
+        set => _wallet = value;
+    }
+
+    [XmlIgnore]
+    public string Name
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(_discordName))
+            {
                 return _discordName;
             }
-            set {
-                lock (_lock)
-                {
-                    _discordName = value;
-                }
-            }
-        }
 
-        private ulong _discordUserId;
-        public ulong DiscordUserId {
-            get {
-                return _discordUserId;
-            }
-            set {
-                lock (_lock)
-                {
-                    _discordUserId = value;
-                }
-            }
-        }
-
-
-        private string _twitchName;
-        public string TwitchName {
-            get {
+            if (!string.IsNullOrEmpty(_twitchName))
+            {
                 return _twitchName;
             }
-            set {
-                lock (_lock)
-                {
-                    _twitchName = value;
-                }
-            }
+
+            return "empty";
         }
+    }
 
-        private string _twitchUserId;
-        public string TwitchUserId {
-            get {
-                return _twitchUserId;
-            }
-            set {
-                lock (_lock)
-                {
-                    _twitchUserId = value;
-                }
-            }
-        }
-
-        private TimeSpan _twitchViewTime = TimeSpan.FromMinutes(1);
-        public TimeSpan TwitchViewTime 
-        {
-            get => _twitchViewTime;
-            set => _twitchViewTime = value;
-        }
-
-        private int _wallet = 0;
-        public int Wallet {
-            get {
-                return _wallet;
-            }
-            set {
-                _wallet = value;
-            }
-        }
-
-        [XmlIgnore] public bool RequestUpdate = false;
-        [XmlIgnore]
-        public string Name {
-            get {
-                if (!string.IsNullOrEmpty(_discordName))
-                    return _discordName;
-                else if (!string.IsNullOrEmpty(_twitchName))
-                    return _twitchName;
-                else
-                    return "empty";
-            }
-        }
-        [XmlIgnore] public DateTime LastUpdate;
-
-        private bool _isDirty;
-        [XmlIgnore] public bool IsDirty 
-        {
-            get 
-            {
-                lock(_lock)
-                    return _isDirty; 
-            }
-            set 
-            {
-                lock(_lock)
-                    _isDirty = value;
-            }
-        }
-
-        private readonly object _lock = new object();
-
-
-        public ForestUser()
-        {
-
-        }
-        public ForestUser(Guid forestUserId, ulong discordId = default, string twitchId = default)
-        {
-            ForestUserId = forestUserId;
-
-            DiscordUserId = discordId;
-            TwitchUserId = twitchId;
-        }
-        public ForestUser(ForestUser clone)
-        {
-            ForestUserId = clone.ForestUserId;
-
-            DiscordName = clone.DiscordName;
-            DiscordUserId = clone.DiscordUserId;
-
-            TwitchName = clone.TwitchName;
-            TwitchUserId = clone.TwitchUserId;
-
-            Wallet = clone.Wallet;
-        }
-
-
-        public void UpdateUserData(bool force = false)
+    [XmlIgnore]
+    public bool IsDirty
+    {
+        get
         {
             lock (_lock)
             {
-                if (!force && (DateTime.UtcNow - LastUpdate).TotalMinutes < ConfigurationHandler.Shared.UpdateUserIntervalInMinutes)
-                    return;
-
-                LastUpdate = DateTime.UtcNow;
+                return _isDirty;
             }
-
-            RequestUpdate = true;
         }
-        public RuntimeResult ApplyUserData(DiscordUser discordUser, TwitchUser twitchUser)
-        {
-            string result = "";
-            RequestUpdate = false;
-
-            if (discordUser != default)
-            {
-                if (discordUser.Id == DiscordUserId)
-                {
-                    if (DiscordName != discordUser.Username)
-                    {
-                        DiscordName = discordUser.Username;
-                        IsDirty = true;
-                    }
-                }
-                else
-                    result = $"Can not update Discord Info of {nameof(ForestUser)} '{Name}'! Mismatching Discord Id!";
-            }
-
-            if (twitchUser != default)
-            {
-                if (twitchUser.Id == TwitchUserId)
-                {
-                    if (TwitchName != twitchUser.Login)
-                    {
-                        TwitchName = twitchUser.Login;
-                        IsDirty = true;
-                    }
-                }
-                else
-                    result = $"{(result.Length > 0 ? "\n" : "")}Can not update Twitch Info of {nameof(ForestUser)} '{Name}'! Mismatching Twitch Id!";
-            }
-
-            return CustomRuntimeResult.FromSuccess(result);
-        }
-
-
-        public void MergeWith(ForestUser user)
+        set
         {
             lock (_lock)
             {
-                LastUpdate = LastUpdate > user.LastUpdate ? LastUpdate : user.LastUpdate;
+                _isDirty = value;
+            }
+        }
+    }
 
-                if (DiscordUserId == default && user.DiscordUserId != default)
-                {
-                    DiscordUserId = user.DiscordUserId;
-                    DiscordName = user.DiscordName;
-                }   
 
-                if (TwitchUserId == default && user.TwitchUserId != default)
+    public void UpdateUserData(bool force = false)
+    {
+        lock (_lock)
+        {
+            if (!force && (DateTime.UtcNow - LastUpdate).TotalMinutes < ConfigurationHandler.Shared.UpdateUserIntervalInMinutes)
+            {
+                return;
+            }
+
+            LastUpdate = DateTime.UtcNow;
+        }
+
+        RequestUpdate = true;
+    }
+
+    public RuntimeResult ApplyUserData(DiscordUser discordUser, TwitchUser twitchUser)
+    {
+        string result = "";
+        RequestUpdate = false;
+
+        if (discordUser != default)
+        {
+            if (discordUser.Id == DiscordUserId)
+            {
+                if (DiscordName != discordUser.Username)
                 {
-                    TwitchUserId = user.TwitchUserId;
-                    TwitchName = user.TwitchName;
+                    DiscordName = discordUser.Username;
+                    IsDirty = true;
                 }
-
-                Wallet += user.Wallet;
+            }
+            else
+            {
+                result = $"Can not update Discord Info of {nameof(ForestUser)} '{Name}'! Mismatching Discord Id!";
             }
         }
 
-        public bool CanAfford(int price)
+        if (twitchUser != default)
         {
-            lock (_lock)
-                return price <= Wallet;
+            if (twitchUser.Id == TwitchUserId)
+            {
+                if (TwitchName != twitchUser.Login)
+                {
+                    TwitchName = twitchUser.Login;
+                    IsDirty = true;
+                }
+            }
+            else
+            {
+                result = $"{(result.Length > 0 ? "\n" : "")}Can not update Twitch Info of {nameof(ForestUser)} '{Name}'! Mismatching Twitch Id!";
+            }
         }
 
-        public void AddToWallet(int amount)
-        {
-            lock (_lock)
-                Wallet += amount;
+        return CustomRuntimeResult.FromSuccess(result);
+    }
 
-            IsDirty = true;
+
+    public void MergeWith(ForestUser user)
+    {
+        lock (_lock)
+        {
+            LastUpdate = LastUpdate > user.LastUpdate ? LastUpdate : user.LastUpdate;
+
+            if (DiscordUserId == default && user.DiscordUserId != default)
+            {
+                DiscordUserId = user.DiscordUserId;
+                DiscordName = user.DiscordName;
+            }
+
+            if (TwitchUserId == default && user.TwitchUserId != default)
+            {
+                TwitchUserId = user.TwitchUserId;
+                TwitchName = user.TwitchName;
+            }
+
+            Wallet += user.Wallet;
+        }
+    }
+
+    public bool CanAfford(int price)
+    {
+        lock (_lock)
+        {
+            return price <= Wallet;
+        }
+    }
+
+    public void AddToWallet(int amount)
+    {
+        lock (_lock)
+        {
+            Wallet += amount;
         }
 
-        public override string ToString()
+        IsDirty = true;
+    }
+
+    public override string ToString()
+    {
+        lock (_lock)
         {
-            lock (_lock)
-                return $"Discord: {DiscordUserId} | Twitch: {TwitchUserId}";
+            return $"Discord: {DiscordUserId} | Twitch: {TwitchUserId}";
         }
     }
 }

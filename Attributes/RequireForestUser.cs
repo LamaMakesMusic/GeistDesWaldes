@@ -1,37 +1,36 @@
-﻿using Discord;
-using Discord.Commands;
-using System;
+﻿using System;
 using System.Threading.Tasks;
+using Discord;
+using Discord.Commands;
 using GeistDesWaldes.Users;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GeistDesWaldes.Attributes
+namespace GeistDesWaldes.Attributes;
+
+public class RequireForestUser : PreconditionAttribute
 {
-    public class RequireForestUser : PreconditionAttribute
+    public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
     {
-        public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
+        LogHandler logger = services.GetService<LogHandler>();
+        ForestUserHandler userHandler = services.GetService<ForestUserHandler>();
+
+        CustomRuntimeResult<ForestUser> getUserResult = await userHandler.GetUser(context.User);
+
+        string errorReason = string.Empty;
+
+        if (!getUserResult.IsSuccess)
         {
-            LogHandler logger = services.GetService<LogHandler>();
-            ForestUserHandler userHandler = services.GetService<ForestUserHandler>();
-            
-            CustomRuntimeResult<ForestUser> getUserResult = await userHandler.GetUser(context.User);
-
-            string errorReason = string.Empty;
-
-            if (!getUserResult.IsSuccess)
-                errorReason = getUserResult.Reason;
-
-
-            if (errorReason?.Length > 0)
-            {
-                await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Denied {nameof(RequireForestUser)}-Permission for '{command.Name}' -> {errorReason}"), (int)ConsoleColor.Red);
-                return PreconditionResult.FromError(errorReason);
-            }
-            else
-            {
-                await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Granted {nameof(RequireForestUser)}-Permission for '{command.Name}'"), (int)ConsoleColor.Green);
-                return PreconditionResult.FromSuccess();
-            }
+            errorReason = getUserResult.Reason;
         }
+
+
+        if (errorReason?.Length > 0)
+        {
+            await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Denied {nameof(RequireForestUser)}-Permission for '{command.Name}' -> {errorReason}"), (int)ConsoleColor.Red);
+            return PreconditionResult.FromError(errorReason);
+        }
+
+        await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Granted {nameof(RequireForestUser)}-Permission for '{command.Name}'"), (int)ConsoleColor.Green);
+        return PreconditionResult.FromSuccess();
     }
 }

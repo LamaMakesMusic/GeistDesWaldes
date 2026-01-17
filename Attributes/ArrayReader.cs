@@ -1,70 +1,73 @@
-﻿using Discord.Commands;
-using System;
+﻿using System;
 using System.Threading.Tasks;
+using Discord.Commands;
 
-namespace GeistDesWaldes.Attributes
+namespace GeistDesWaldes.Attributes;
+
+public class ArrayReader : TypeReader
 {
-    public class ArrayReader : TypeReader
+    private const char joker = '\\';
+    public const char DEFAULT_ELEMENT_SEPERATOR = ';';
+    private const string dividerPattern = "%?~§";
+
+
+    public override Task<TypeReaderResult> ReadAsync(ICommandContext context, string input, IServiceProvider services)
     {
-        private const char joker = '\\';
-        public const char DEFAULT_ELEMENT_SEPERATOR = ';';
-        private const string dividerPattern = "%?~§";
+        return SplitToArray(input);
+    }
 
-
-        public override Task<TypeReaderResult> ReadAsync(ICommandContext context, string input, IServiceProvider services)
+    public static Task<TypeReaderResult> SplitToArray(string input, char[] seperator = null, char wildcard = joker)
+    {
+        return Task.Run(() =>
         {
-            return SplitToArray(input);
-        }
-
-        public static Task<TypeReaderResult> SplitToArray(string input, char[] seperator = null, char wildcard = joker)
-        {
-            return Task.Run(() =>
+            try
             {
-                try
+                if (seperator == null)
                 {
-                    if (seperator == null)
-                        seperator = new char[] { DEFAULT_ELEMENT_SEPERATOR };
+                    seperator = new[] { DEFAULT_ELEMENT_SEPERATOR };
+                }
 
-                    for (int i = 0; i < input.Length; i++)
+                for (int i = 0; i < input.Length; i++)
+                {
+                    if (input[i] == wildcard)
                     {
-                        if (input[i] == wildcard)
-                        {
-                            i++; // Skip next char
-                            continue;
-                        }
+                        i++; // Skip next char
+                        continue;
+                    }
 
-                        bool containsChar = false;
-                        for (int j = 0; j < seperator.Length; j++)
+                    bool containsChar = false;
+                    for (int j = 0; j < seperator.Length; j++)
+                    {
+                        if (seperator[j] == input[i])
                         {
-                            if (seperator[j] == input[i])
-                            {
-                                containsChar = true;
-                                break;
-                            }
-                        }
-
-                        if (containsChar)
-                        {
-                            input = input.Insert(i, dividerPattern);
-                            i += dividerPattern.Length; // Skip inserted divider
+                            containsChar = true;
+                            break;
                         }
                     }
 
-                    string[] seperatorArray = new string[seperator.Length];
-                    for (int i = 0; i < seperator.Length; i++)
-                        seperatorArray[i] = $"{dividerPattern}{seperator[i]}";
-
-
-                    string[] splitParams = input.Split(seperatorArray, StringSplitOptions.RemoveEmptyEntries);
-
-
-                    return TypeReaderResult.FromSuccess(splitParams);
+                    if (containsChar)
+                    {
+                        input = input.Insert(i, dividerPattern);
+                        i += dividerPattern.Length; // Skip inserted divider
+                    }
                 }
-                catch (Exception e)
+
+                string[] seperatorArray = new string[seperator.Length];
+                for (int i = 0; i < seperator.Length; i++)
                 {
-                    return TypeReaderResult.FromError(e);
+                    seperatorArray[i] = $"{dividerPattern}{seperator[i]}";
                 }
-            });
-        }
+
+
+                string[] splitParams = input.Split(seperatorArray, StringSplitOptions.RemoveEmptyEntries);
+
+
+                return TypeReaderResult.FromSuccess(splitParams);
+            }
+            catch (Exception e)
+            {
+                return TypeReaderResult.FromError(e);
+            }
+        });
     }
 }

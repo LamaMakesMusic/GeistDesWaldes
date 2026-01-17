@@ -1,70 +1,74 @@
-﻿using Discord;
+﻿using System;
+using System.Threading.Tasks;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.TwitchIntegration;
 using GeistDesWaldes.Users;
-using System;
-using System.Threading.Tasks;
 
-namespace GeistDesWaldes.Attributes
+namespace GeistDesWaldes.Attributes;
+
+[Flags]
+public enum BadgeTypeOption
 {
-    [Flags]
-    public enum BadgeTypeOption
+    None = 1 << 0,
+    Broadcaster = 1 << 1,
+    Moderator = 1 << 2,
+    Vip = 1 << 3,
+    Founder = 1 << 4,
+    Subscriber = 1 << 5
+}
+
+public class RequireTwitchBadge : PreconditionAttribute
+{
+    public RequireTwitchBadge(BadgeTypeOption badges)
     {
-        None = 1 << 0,
-        Broadcaster = 1 << 1,
-        Moderator = 1 << 2,
-        Vip = 1 << 3,
-        Founder = 1 << 4,
-        Subscriber = 1 << 5
+        RequiredBadges = badges;
     }
-    
-    public class RequireTwitchBadge : PreconditionAttribute
+
+    public BadgeTypeOption RequiredBadges { get; }
+
+
+    public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
     {
-        public BadgeTypeOption RequiredBadges { get; private set; }
+        LogHandler logger = (LogHandler)services.GetService(typeof(LogHandler));
 
-        
-        public RequireTwitchBadge(BadgeTypeOption badges)
+        string errorReason;
+
+        IUser userInQuestion;
+
+        if (context.User is MetaUser metaUser)
         {
-            RequiredBadges = badges;
+            userInQuestion = metaUser.FrontUser;
         }
-        
-
-        public override async Task<PreconditionResult> CheckPermissionsAsync(ICommandContext context, CommandInfo command, IServiceProvider services)
+        else
         {
-            LogHandler logger = (LogHandler)services.GetService(typeof(LogHandler));
+            userInQuestion = context.User;
+        }
 
-            string errorReason;
-
-            IUser userInQuestion;
-
-            if (context.User is MetaUser metaUser)
-                userInQuestion = metaUser.FrontUser;
-            else
-                userInQuestion = context.User;
-
-            // Check if this message is a twitch message, which is the only context where badges exist
-            if (userInQuestion is TwitchUser author)
+        // Check if this message is a twitch message, which is the only context where badges exist
+        if (userInQuestion is TwitchUser author)
+        {
+            //Bot is always allowed
+            if (author.IsBot && author.TwitchId.Equals(TwitchIntegrationHandler.Instance.BotTwitchId, StringComparison.Ordinal))
             {
-                //Bot is always allowed
-                if (author.IsBot && author.TwitchId.Equals(TwitchIntegrationHandler.Instance.BotTwitchId, StringComparison.Ordinal))
-                    return PreconditionResult.FromSuccess();
-
-                if ((RequiredBadges & author.Badges) != 0)
-                {
-                    await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Granted {nameof(RequireTwitchBadge)}-Permission for '{command.Name}' -> {RequiredBadges} contains {author.Badges}."), (int)ConsoleColor.Green);
-                    return PreconditionResult.FromSuccess();
-                }
-                
-                errorReason = $"User Badges '{author.Badges}' do not overlap required badges '{RequiredBadges}'.";
+                return PreconditionResult.FromSuccess();
             }
-            else
-                errorReason = "User is not a twitch message author!";
 
+            if ((RequiredBadges & author.Badges) != 0)
+            {
+                await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Granted {nameof(RequireTwitchBadge)}-Permission for '{command.Name}' -> {RequiredBadges} contains {author.Badges}."), (int)ConsoleColor.Green);
+                return PreconditionResult.FromSuccess();
+            }
 
-            await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Denied {nameof(RequireTwitchBadge)}-Permission for '{command.Name}' -> {errorReason}"), (int)ConsoleColor.Red);
-            return PreconditionResult.FromError(errorReason);
+            errorReason = $"User Badges '{author.Badges}' do not overlap required badges '{RequiredBadges}'.";
+        }
+        else
+        {
+            errorReason = "User is not a twitch message author!";
         }
 
-    }
 
+        await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Denied {nameof(RequireTwitchBadge)}-Permission for '{command.Name}' -> {errorReason}"), (int)ConsoleColor.Red);
+        return PreconditionResult.FromError(errorReason);
+    }
 }

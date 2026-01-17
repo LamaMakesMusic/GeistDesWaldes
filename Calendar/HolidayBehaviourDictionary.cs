@@ -1,19 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace GeistDesWaldes.Calendar
+namespace GeistDesWaldes.Calendar;
+
+[Serializable]
+public class HolidayBehaviourDictionary
 {
-    [Serializable]
-    public class HolidayBehaviourDictionary
+    public string ActiveHoliday = null;
+
+    public List<HolidayBehaviour> Behaviours;
+
+
+    public HolidayBehaviourDictionary()
     {
-        public string ActiveHoliday = null;
-
-        public List<HolidayBehaviour> Behaviours;
-
-
-        public HolidayBehaviourDictionary()
-        {
-            Behaviours = new List<HolidayBehaviour>();
-        }
+        Behaviours = new List<HolidayBehaviour>();
     }
 }

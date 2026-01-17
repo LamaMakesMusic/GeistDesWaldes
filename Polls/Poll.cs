@@ -1,98 +1,102 @@
-﻿using Discord;
-using GeistDesWaldes.Dictionaries;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Discord;
 
-namespace GeistDesWaldes.Polls
+namespace GeistDesWaldes.Polls;
+
+[Serializable]
+public class Poll
 {
-    [Serializable]
-    public class Poll
+    private readonly object _locker = new();
+    public ulong ChannelId;
+
+    public string ChannelName;
+
+    public string Description;
+    public string Name;
+    public int NameHash;
+
+    public List<PollOption> PollOptions = new();
+    public List<ulong> UsersVoted = new();
+
+    public Poll()
     {
-        public string Name;
-        public int NameHash;
+    }
 
-        public string Description;
+    public Poll(string name, string description, IChannel channel, PollOption[] pollOptions)
+    {
+        SetName(name);
 
-        public string ChannelName;
-        public ulong ChannelId;
+        Description = description;
 
-        public List<PollOption> PollOptions = new List<PollOption>();
-        public List<ulong> UsersVoted = new List<ulong>();
-        private readonly object _locker = new object();
+        ChannelName = channel.Name;
+        ChannelId = channel.Id;
 
-        public Poll()
+        PollOptions.AddRange(pollOptions);
+    }
+
+    public void SetName(string name)
+    {
+        Name = name.ToLower();
+        NameHash = Name.GetHashCode();
+    }
+
+    public PollHandler.VoteEvaluationResult TryVote(string message, ulong userId)
+    {
+        lock (_locker)
         {
+            int pollHash = message.Trim().ToLower().GetHashCode();
 
-        }
-        public Poll(string name, string description, IChannel channel, PollOption[] pollOptions)
-        {
-            SetName(name);
-
-            Description = description;
-
-            ChannelName = channel.Name;
-            ChannelId = channel.Id;
-
-            PollOptions.AddRange(pollOptions);
-        }
-
-        public void SetName(string name)
-        {
-            Name = name.ToLower();
-            NameHash = Name.GetHashCode();
-        }
-
-        public PollHandler.VoteEvaluationResult TryVote(string message, ulong userId)
-        {
-            lock (_locker)
+            if (PollOptions.FirstOrDefault(p => p.IdentifierHash == pollHash) is PollOption option && option != default)
             {
-                int pollHash = message.Trim().ToLower().GetHashCode();
-
-                if (PollOptions.FirstOrDefault(p => p.IdentifierHash == pollHash) is PollOption option && option != default)
+                if (!UsersVoted.Contains(userId))
                 {
-                    if (!UsersVoted.Contains(userId))
-                    {
-                        option.Votes++;
-                        UsersVoted.Add(userId);
+                    option.Votes++;
+                    UsersVoted.Add(userId);
 
-                        return PollHandler.VoteEvaluationResult.Valid;
-                    }
-                    else
-                        return PollHandler.VoteEvaluationResult.AlreadyVoted;
+                    return PollHandler.VoteEvaluationResult.Valid;
                 }
-                else
-                    return PollHandler.VoteEvaluationResult.Invalid;
+
+                return PollHandler.VoteEvaluationResult.AlreadyVoted;
             }
+
+            return PollHandler.VoteEvaluationResult.Invalid;
+        }
+    }
+
+    public override string ToString()
+    {
+        return $"{HeaderToString()}\n{BodyToString()}";
+    }
+
+    public string HeaderToString()
+    {
+        return $"{Name} [{ChannelName}]";
+    }
+
+    public string BodyToString()
+    {
+        StringBuilder builder = new();
+
+        if (!string.IsNullOrWhiteSpace($"'{Description}'"))
+        {
+            builder.AppendLine(Description);
         }
 
-        public override string ToString()
+        lock (_locker)
         {
-            return $"{HeaderToString()}\n{BodyToString()}";
-        }
-        public string HeaderToString()
-        {
-            return $"{Name} [{ChannelName}]";
-        }
-        public string BodyToString()
-        {
-            StringBuilder builder = new StringBuilder();
+            PollOptions.Sort((p1, p2) => p2.Votes.CompareTo(p1.Votes));
 
-            if (!string.IsNullOrWhiteSpace($"'{Description}'"))
-                builder.AppendLine(Description);
+            //builder.AppendLine($"{ReplyDictionary.ID,-3} | {ReplyDictionary.VOTES,-8} | {ReplyDictionary.DESCRIPTION,-24}");
 
-            lock (_locker)
+            for (int i = 0; i < PollOptions?.Count; i++)
             {
-                PollOptions.Sort((p1, p2) => p2.Votes.CompareTo(p1.Votes));
-
-                //builder.AppendLine($"{ReplyDictionary.ID,-3} | {ReplyDictionary.VOTES,-8} | {ReplyDictionary.DESCRIPTION,-24}");
-
-                for (int i = 0; i < PollOptions?.Count; i++)
-                    builder.AppendLine(PollOptions[i].ToString());
+                builder.AppendLine(PollOptions[i].ToString());
             }
-
-            return builder.ToString();
         }
+
+        return builder.ToString();
     }
 }

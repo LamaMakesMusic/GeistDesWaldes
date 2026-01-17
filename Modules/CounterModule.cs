@@ -1,142 +1,142 @@
-﻿using Discord;
+﻿using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using Discord;
 using Discord.Commands;
 using GeistDesWaldes.Attributes;
 using GeistDesWaldes.Communication;
 using GeistDesWaldes.Counters;
 using GeistDesWaldes.Dictionaries;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
-namespace GeistDesWaldes.Modules
+namespace GeistDesWaldes.Modules;
+
+[RequireTimeJoined("0", "0", "1", Group = "CounterPermissions")]
+[RequireIsFollower(Group = "CounterPermissions")]
+[RequireIsBot(Group = "CounterPermissions")]
+[Group("counter")]
+[Alias("counters")]
+public class CounterModule : ModuleBase<CommandContext>, ICommandModule
 {
-    [RequireTimeJoined("0", "0", "1", Group = "CounterPermissions")]
-    [RequireIsFollower(Group = "CounterPermissions")]
-    [RequireIsBot(Group = "CounterPermissions")]
-    [Group("counter")]
-    [Alias("counters")]
-    public class CounterModule : ModuleBase<CommandContext>, ICommandModule
+    public Server Server { get; set; }
+
+    [Priority(-1)]
+    [Command]
+    [Summary("Lists existing counters.")]
+    public async Task ListCounters()
+    {
+        string body = await Server.GetModule<CounterHandler>().ListCounters();
+
+        ChannelMessage msg = new ChannelMessage(Context)
+                             .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
+                             .AddContent(new ChannelMessageContent()
+                                 .SetDescription(body)
+                             );
+
+        await msg.SendAsync();
+    }
+
+
+    [RequireUserPermission(GuildPermission.Administrator, Group = "CounterModPermissions")]
+    [RequireUserPermission(GuildPermission.ManageChannels, Group = "CounterModPermissions")]
+    [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CounterModPermissions")]
+    public class CounterModuleModPermissionSubModule : ModuleBase<CommandContext>, ICommandModule
     {
         public Server Server { get; set; }
-        
-        [Priority(-1)]
-        [Command]
-        [Summary("Lists existing counters.")]
-        public async Task ListCounters()
+
+        [Command("add")]
+        [Summary("Creates a new counter.")]
+        public async Task<RuntimeResult> AddCounter([Summary("The name of the counter")] string counterName, [Summary("Text to embedd the counter into. e.g. \"I ate {x} fish, today!\"")] [Optional] string counterText)
         {
-            string body = await Server.GetModule<CounterHandler>().ListCounters();
+            CustomRuntimeResult result = await Server.GetModule<CounterHandler>().AddCounterAsync(new Counter(counterName, counterText));
 
-            ChannelMessage msg = new ChannelMessage(Context)
-                            .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
-                            .AddContent(new ChannelMessageContent()
-                                .SetDescription(body)
-                            );
+            if (result.IsSuccess)
+            {
+                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_CREATED, "{X}", counterName);
 
-            await msg.SendAsync();
+                ChannelMessage msg = new ChannelMessage(Context)
+                                     .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
+                                     .AddContent(new ChannelMessageContent()
+                                                 .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
+                                                 .SetDescription(body)
+                                     );
+
+                await msg.SendAsync();
+            }
+
+            return result;
         }
 
-
-        [RequireUserPermission(GuildPermission.Administrator, Group = "CounterModPermissions")] [RequireUserPermission(GuildPermission.ManageChannels, Group = "CounterModPermissions")]
-        [RequireTwitchBadge(BadgeTypeOption.Broadcaster | BadgeTypeOption.Moderator, Group = "CounterModPermissions")]
-        public class CounterModuleModPermissionSubModule : ModuleBase<CommandContext>, ICommandModule
+        [Command("remove")]
+        [Summary("Removes an existing counter.")]
+        public async Task<RuntimeResult> RemoveCounter([Summary("The name of the counter")] string counterName)
         {
-            public Server Server { get; set; }
-
-            [Command("add")]
-            [Summary("Creates a new counter.")]
-            public async Task<RuntimeResult> AddCounter([Summary("The name of the counter")] string counterName, [Summary("Text to embedd the counter into. e.g. \"I ate {x} fish, today!\"")][Optional] string counterText)
+            CustomRuntimeResult result = await Server.GetModule<CounterHandler>().RemoveCounterAsync(counterName);
+            if (result.IsSuccess)
             {
-                var result = await Server.GetModule<CounterHandler>().AddCounterAsync(new Counter(counterName, counterText));
+                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_REMOVED, "{X}", counterName);
 
-                if (result.IsSuccess)
-                {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_CREATED, "{X}", counterName);
+                ChannelMessage msg = new ChannelMessage(Context)
+                                     .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
+                                     .AddContent(new ChannelMessageContent()
+                                                 .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
+                                                 .SetDescription(body)
+                                     );
 
-                    ChannelMessage msg = new ChannelMessage(Context)
-                            .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
-                            .AddContent(new ChannelMessageContent()
-                                .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
-                                .SetDescription(body)
-                            );
-
-                    await msg.SendAsync();
-                }
-
-                return result;
+                await msg.SendAsync();
             }
 
-            [Command("remove")]
-            [Summary("Removes an existing counter.")]
-            public async Task<RuntimeResult> RemoveCounter([Summary("The name of the counter")] string counterName)
+            return result;
+        }
+
+        [Command("set")]
+        [Summary("Sets existing counter to value.")]
+        public async Task<RuntimeResult> SetCounter([Summary("The name of the counter")] string counterName, [Summary("The value the counter will be set to.")] int counterValue)
+        {
+            CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
+            if (result.ResultValue is { } counter)
             {
-                var result = await Server.GetModule<CounterHandler>().RemoveCounterAsync(counterName);
-                if (result.IsSuccess)
-                {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_REMOVED, "{X}", counterName);
+                counter.Value = counterValue;
+                await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
-                    ChannelMessage msg = new ChannelMessage(Context)
-                            .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
-                            .AddContent(new ChannelMessageContent()
-                                .SetTitle(ReplyDictionary.AFFIRMATIVE, EmojiDictionary.FLOPPY_DISC)
-                                .SetDescription(body)
-                            );
 
-                    await msg.SendAsync();
-                }
+                string body = await counter.ReturnValueText();
 
-                return result;
+                ChannelMessage msg = new ChannelMessage(Context)
+                                     .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
+                                     .AddContent(new ChannelMessageContent()
+                                                 .SetTitle(counter.Name, EmojiDictionary.PENCIL)
+                                                 .SetDescription(body)
+                                     );
+
+                await msg.SendAsync();
             }
 
-            [Command("set")]
-            [Summary("Sets existing counter to value.")]
-            public async Task<RuntimeResult> SetCounter([Summary("The name of the counter")] string counterName, [Summary("The value the counter will be set to.")] int counterValue)
+            return result;
+        }
+
+        [Command("edit")]
+        [Summary("Edits existing counter description.")]
+        public async Task<RuntimeResult> EditCounter([Summary("The name of the counter")] string counterName, [Summary("The new description.")] string newDescription)
+        {
+            CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
+            if (result.ResultValue is { } counter)
             {
-                CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
-                if (result.ResultValue is { } counter)
-                {
-                    counter.Value = counterValue;
-                    await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
+                counter.Description = newDescription;
 
+                await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
-                    string body = await counter.ReturnValueText();
+                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_DESCRIPTION_CHANGED, "{x}", counterName);
 
-                    ChannelMessage msg = new ChannelMessage(Context)
-                            .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
-                            .AddContent(new ChannelMessageContent()
-                                .SetTitle(counter.Name, EmojiDictionary.PENCIL)
-                                .SetDescription(body)
-                            );
+                ChannelMessage msg = new ChannelMessage(Context)
+                                     .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
+                                     .AddContent(new ChannelMessageContent()
+                                                 .SetTitle(counter.Name, EmojiDictionary.PENCIL)
+                                                 .SetDescription(body)
+                                     );
 
-                    await msg.SendAsync();
-                }
-
-                return result;
+                await msg.SendAsync();
             }
 
-            [Command("edit")]
-            [Summary("Edits existing counter description.")]
-            public async Task<RuntimeResult> EditCounter([Summary("The name of the counter")] string counterName, [Summary("The new description.")] string newDescription)
-            {
-                CustomRuntimeResult<Counter> result = Server.GetModule<CounterHandler>().GetCounter(counterName);
-                if (result.ResultValue is { } counter)
-                {
-                    counter.Description = newDescription;
-
-                    await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
-
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_DESCRIPTION_CHANGED, "{x}", counterName);
-
-                    ChannelMessage msg = new ChannelMessage(Context)
-                            .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
-                            .AddContent(new ChannelMessageContent()
-                                .SetTitle(counter.Name, EmojiDictionary.PENCIL)
-                                .SetDescription(body)
-                            );
-
-                    await msg.SendAsync();
-                }
-
-                return result;
-            }
+            return result;
         }
     }
 }

@@ -1,7 +1,6 @@
-﻿namespace GeistDesWaldes.Modules
+﻿namespace GeistDesWaldes.Modules;
+
+public interface ICommandModule
 {
-    public interface ICommandModule
-    {
-        public Server Server { get; set; }
-    }
+    public Server Server { get; set; }
 }

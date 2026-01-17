@@ -1,24 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace GeistDesWaldes.Polls
+namespace GeistDesWaldes.Polls;
+
+[Serializable]
+public class ChannelPoll
 {
-    [Serializable]
-    public class ChannelPoll
+    public ulong ChannelId;
+    public List<Poll> Polls = new();
+
+    public ChannelPoll()
     {
-        public ulong ChannelId;
-        public List<Poll> Polls = new List<Poll>();
+    }
 
-        public ChannelPoll()
+    public ChannelPoll(ulong channelId, Poll poll = null)
+    {
+        ChannelId = channelId;
+
+        if (poll != null)
         {
-
-        }
-        public ChannelPoll(ulong channelId, Poll poll = null)
-        {
-            ChannelId = channelId;
-
-            if (poll != null)
-                Polls.Add(poll);
+            Polls.Add(poll);
         }
     }
 }

@@ -1,21 +1,20 @@
 ﻿using System;
 
-namespace GeistDesWaldes.Calendar
+namespace GeistDesWaldes.Calendar;
+
+[Serializable]
+public class Birthday
 {
-    [Serializable]
-    public class Birthday
+    public DateTime BirthDate;
+    public Guid UserId;
+
+    public Birthday()
     {
-        public Guid UserId;
-        public DateTime BirthDate;
+    }
 
-        public Birthday()
-        {
-
-        }
-        public Birthday(Guid id, DateTime date)
-        {
-            UserId = id;
-            BirthDate = date;
-        }
+    public Birthday(Guid id, DateTime date)
+    {
+        UserId = id;
+        BirthDate = date;
     }
 }
