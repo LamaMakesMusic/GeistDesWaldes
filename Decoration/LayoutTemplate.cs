@@ -126,13 +126,13 @@ public class LayoutTemplate
     }
 
 
-    public async Task<CustomRuntimeResult> AddChannelLayout(ulong channelId)
+    public CustomRuntimeResult AddChannelLayout(ulong channelId)
     {
         if (Launcher.Instance.DiscordClient.GetChannel(channelId) is { } channel)
         {
-            if ((await GetChannelLayout(channelId)).IsSuccess)
+            if ((GetChannelLayout(channelId)).IsSuccess)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_ALREADY_IN_TEMPLATE, "{x}", channelId.ToString()));
+                return CustomRuntimeResult.FromError(ReplyDictionary.CHANNEL_X_ALREADY_IN_TEMPLATE.ReplaceStringInvariantCase("{x}", channelId.ToString()));
             }
 
             ChannelLayout layout = new()
@@ -149,7 +149,7 @@ public class LayoutTemplate
         return CustomRuntimeResult.FromError($"{ReplyDictionary.COULD_NOT_FIND_CHANNEL_WITH_ID} -> {channelId}");
     }
 
-    public async Task<CustomRuntimeResult<ChannelLayout>> GetChannelLayout(ulong channelId)
+    public CustomRuntimeResult<ChannelLayout> GetChannelLayout(ulong channelId)
     {
         ChannelLayout result = ChannelLayouts.Find(c => c.ChannelId == channelId);
 
@@ -158,14 +158,14 @@ public class LayoutTemplate
             return CustomRuntimeResult<ChannelLayout>.FromSuccess(value: result);
         }
 
-        return CustomRuntimeResult<ChannelLayout>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_IS_NOT_IN_TEMPLATE, "{x}", channelId.ToString()));
+        return CustomRuntimeResult<ChannelLayout>.FromError(ReplyDictionary.CHANNEL_X_IS_NOT_IN_TEMPLATE.ReplaceStringInvariantCase("{x}", channelId.ToString()));
     }
 
     public async Task<CustomRuntimeResult> RemoveChannelLayout(Server server, ulong channelId, bool revertIfActive = true)
     {
         try
         {
-            CustomRuntimeResult<ChannelLayout> getResult = await GetChannelLayout(channelId);
+            CustomRuntimeResult<ChannelLayout> getResult = GetChannelLayout(channelId);
 
             if (getResult.IsSuccess)
             {

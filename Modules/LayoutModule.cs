@@ -99,7 +99,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
             {
                 if (!string.IsNullOrWhiteSpace(Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate))
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_REVERTED, "{x}", Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate);
+                    string body = ReplyDictionary.TEMPLATE_X_REVERTED.ReplaceStringInvariantCase("{x}", Server.GetModule<LayoutTemplateHandler>().TemplateDictionary.ActiveTemplate);
 
                     CustomRuntimeResult result = await Server.GetModule<LayoutTemplateHandler>().RevertActiveTemplate();
 
@@ -135,7 +135,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult creationResult = await Server.GetModule<LayoutTemplateHandler>().CreateTemplate(name);
+                CustomRuntimeResult creationResult = Server.GetModule<LayoutTemplateHandler>().CreateTemplate(name);
                 if (creationResult.IsSuccess)
                 {
                     StringBuilder autofillResult = new();
@@ -143,7 +143,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                     {
                         if (Context.Guild != null)
                         {
-                            CustomRuntimeResult<LayoutTemplate> getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                            CustomRuntimeResult<LayoutTemplate> getTemplateResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                             if (getTemplateResult.IsSuccess)
                             {
                                 foreach (IGuildChannel channel in await Context.Guild.GetChannelsAsync())
@@ -154,7 +154,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
 
                                         if (channel is ITextChannel or IVoiceChannel)
                                         {
-                                            CustomRuntimeResult addResult = await getTemplateResult.ResultValue.AddChannelLayout(channel.Id);
+                                            CustomRuntimeResult addResult = getTemplateResult.ResultValue.AddChannelLayout(channel.Id);
 
                                             if (addResult.IsSuccess)
                                             {
@@ -188,7 +188,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                     }
 
 
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_CREATED, "{x}", name);
+                    string body = ReplyDictionary.TEMPLATE_X_CREATED.ReplaceStringInvariantCase("{x}", name);
 
                     if (autofillChannels)
                     {
@@ -223,7 +223,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<LayoutTemplate> getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                CustomRuntimeResult<LayoutTemplate> getResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
 
                 if (getResult.IsSuccess)
                 {
@@ -257,7 +257,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (removeResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_REMOVED, "{x}", name);
+                    string body = ReplyDictionary.TEMPLATE_X_REMOVED.ReplaceStringInvariantCase("{x}", name);
 
 
                     ChannelMessage msg = new ChannelMessage(Context)
@@ -291,7 +291,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (applyResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_X_APPLIED, "{x}", name);
+                    string body = ReplyDictionary.TEMPLATE_X_APPLIED.ReplaceStringInvariantCase("{x}", name);
 
 
                     ChannelMessage msg = new ChannelMessage(Context)
@@ -329,7 +329,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<LayoutTemplate> getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                CustomRuntimeResult<LayoutTemplate> getTemplateResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                 if (getTemplateResult.IsSuccess)
                 {
                     StringBuilder body = new();
@@ -371,7 +371,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<LayoutTemplate> getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                CustomRuntimeResult<LayoutTemplate> getTemplateResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                 if (getTemplateResult.IsSuccess)
                 {
                     StringBuilder body = new();
@@ -380,13 +380,13 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                     {
                         if (!ulong.TryParse(channelId, out ulong parsedChannelId))
                         {
-                            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(channelId)), "{y}", typeof(ulong).Name));
+                            return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", nameof(channelId)).ReplaceStringInvariantCase("{y}", typeof(ulong).Name));
                         }
 
-                        CustomRuntimeResult creationResult = await getTemplateResult.ResultValue.AddChannelLayout(parsedChannelId);
+                        CustomRuntimeResult creationResult = getTemplateResult.ResultValue.AddChannelLayout(parsedChannelId);
                         if (creationResult.IsSuccess)
                         {
-                            body.AppendLine(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_ADDED_TO_TEMPLATE, "{x}", $"{(await Launcher.Instance.GetChannel<IChannel>(parsedChannelId))?.Name} ({channelId})"));
+                            body.AppendLine(ReplyDictionary.CHANNEL_X_ADDED_TO_TEMPLATE.ReplaceStringInvariantCase("{x}", $"{(await Launcher.Instance.GetChannel<IChannel>(parsedChannelId))?.Name} ({channelId})"));
                         }
                         else
                         {
@@ -423,7 +423,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         [Summary("Gets channel layout of an existing template.")]
         public async Task<RuntimeResult> GetChannelLayout([Summary("Name of existing template")] string name, IChannel channel)
         {
-            CustomRuntimeResult<LayoutTemplate> getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+            CustomRuntimeResult<LayoutTemplate> getResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
 
             if (getResult.IsSuccess)
             {
@@ -432,7 +432,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                     return CustomRuntimeResult.FromError(ReplyDictionary.CHANNEL_ID_MUST_NOT_BE_EMPTY);
                 }
 
-                CustomRuntimeResult<ChannelLayout> getLayoutResult = await getResult.ResultValue.GetChannelLayout(channel.Id);
+                CustomRuntimeResult<ChannelLayout> getLayoutResult = getResult.ResultValue.GetChannelLayout(channel.Id);
                 if (getLayoutResult.IsSuccess)
                 {
                     string body = getLayoutResult.ResultValue.DetailsToString();
@@ -459,7 +459,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<LayoutTemplate> getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                CustomRuntimeResult<LayoutTemplate> getResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                 if (getResult.IsSuccess)
                 {
                     if (channel == null)
@@ -470,7 +470,7 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                     CustomRuntimeResult removalResult = await getResult.ResultValue.RemoveChannelLayout(Server, channel.Id);
                     if (removalResult.IsSuccess)
                     {
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CHANNEL_X_REMOVED_FROM_TEMPLATE, "{x}", $"{channel.Name} ({channel.Id})");
+                        string body = ReplyDictionary.CHANNEL_X_REMOVED_FROM_TEMPLATE.ReplaceStringInvariantCase("{x}", $"{channel.Name} ({channel.Id})");
 
                         await Server.GetModule<LayoutTemplateHandler>().SaveTemplatesToFile();
 
@@ -513,15 +513,15 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                         return CustomRuntimeResult.FromError($"{ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY} -> '{nameof(maps)}'");
                     }
 
-                    CustomRuntimeResult<LayoutTemplate> getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                    CustomRuntimeResult<LayoutTemplate> getTemplateResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getTemplateResult.IsSuccess)
                     {
                         if (!ulong.TryParse(channelId, out ulong parsedChannelId))
                         {
-                            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(channelId)), "{y}", typeof(ulong).Name));
+                            return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", nameof(channelId)).ReplaceStringInvariantCase("{y}", typeof(ulong).Name));
                         }
 
-                        CustomRuntimeResult<ChannelLayout> getChannelResult = await getTemplateResult.ResultValue.GetChannelLayout(parsedChannelId);
+                        CustomRuntimeResult<ChannelLayout> getChannelResult = getTemplateResult.ResultValue.GetChannelLayout(parsedChannelId);
                         if (getChannelResult.IsSuccess)
                         {
                             StringBuilder issues = new();
@@ -577,15 +577,15 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    CustomRuntimeResult<LayoutTemplate> getTemplateResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                    CustomRuntimeResult<LayoutTemplate> getTemplateResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getTemplateResult.IsSuccess)
                     {
                         if (!ulong.TryParse(channelId, out ulong parsedChannelId))
                         {
-                            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(channelId)), "{y}", typeof(ulong).Name));
+                            return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", nameof(channelId)).ReplaceStringInvariantCase("{y}", typeof(ulong).Name));
                         }
 
-                        CustomRuntimeResult<ChannelLayout> getChannelResult = await getTemplateResult.ResultValue.GetChannelLayout(parsedChannelId);
+                        CustomRuntimeResult<ChannelLayout> getChannelResult = getTemplateResult.ResultValue.GetChannelLayout(parsedChannelId);
                         if (getChannelResult.IsSuccess)
                         {
                             List<ChannelLayoutMap> matches = getChannelResult.ResultValue.LayoutMaps.FindAll(lm => lm.LayoutTarget == layoutTarget);
@@ -639,15 +639,15 @@ public class LayoutModule : ModuleBase<CommandContext>, ICommandModule
                         return CustomRuntimeResult.FromError($"{ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY} -> '{nameof(maps)}'");
                     }
 
-                    CustomRuntimeResult<LayoutTemplate> getResult = await Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
+                    CustomRuntimeResult<LayoutTemplate> getResult = Server.GetModule<LayoutTemplateHandler>().GetTemplate(name);
                     if (getResult.IsSuccess)
                     {
                         if (!ulong.TryParse(channelId, out ulong parsedChannelId))
                         {
-                            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(channelId)), "{y}", typeof(ulong).Name));
+                            return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", nameof(channelId)).ReplaceStringInvariantCase("{y}", nameof(UInt64)));
                         }
 
-                        CustomRuntimeResult<ChannelLayout> getChannelResult = await getResult.ResultValue.GetChannelLayout(parsedChannelId);
+                        CustomRuntimeResult<ChannelLayout> getChannelResult = getResult.ResultValue.GetChannelLayout(parsedChannelId);
                         if (getChannelResult.IsSuccess)
                         {
                             StringBuilder issues = new();

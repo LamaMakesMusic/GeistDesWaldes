@@ -88,7 +88,7 @@ public class PollModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (result.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_VOTE_USING_PREFIX_X, "{x}", Server.Config.GeneralSettings.PollVotePrefix.ToString());
+                    string body = ReplyDictionary.POLL_VOTE_USING_PREFIX_X.ReplaceStringInvariantCase("{x}", Server.Config.GeneralSettings.PollVotePrefix.ToString());
                     body = $"{result.ResultValue.BodyToString()}\n{body}";
 
                     ChannelMessage msg = new ChannelMessage(Context)

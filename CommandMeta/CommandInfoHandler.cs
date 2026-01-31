@@ -544,7 +544,7 @@ public class CommandInfoHandler : BaseHandler
     public async Task<CustomRuntimeResult<CommandMetaInfo[]>> ParseToSerializableCommandInfo(string[] commands, ICommandContext context)
     {
         // Merge commands that contain arrays as parameter and thus got split by the ArrayReader on accident
-        CustomRuntimeResult<string[]> bundleResult = await BundleGroups(commands, '\0', ')', ArrayReader.DEFAULT_ELEMENT_SEPERATOR);
+        CustomRuntimeResult<string[]> bundleResult = BundleGroups(commands, '\0', ')', ArrayReader.DEFAULT_ELEMENT_SEPERATOR);
         if (bundleResult.IsSuccess)
         {
             commands = bundleResult.ResultValue;
@@ -563,7 +563,7 @@ public class CommandInfoHandler : BaseHandler
 
             if (!paramUnpackResult.IsSuccess || splitCommand == null || splitCommand.Length < 1)
             {
-                return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PROCESS_COMMAND_WITH_NAME_X, "{x}", commands[i])}\n{paramUnpackResult.ErrorReason}");
+                return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{ReplyDictionary.COULD_NOT_PROCESS_COMMAND_WITH_NAME_X.ReplaceStringInvariantCase("{x}", commands[i])}\n{paramUnpackResult.ErrorReason}");
             }
 
 
@@ -645,7 +645,7 @@ public class CommandInfoHandler : BaseHandler
 
                 if (commandInfo == null)
                 {
-                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_DISCORD_COMMAND_INFO_FOR_COMMAND_NAMED_X, "{x}", command.FullName)}");
+                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{ReplyDictionary.COULD_NOT_FIND_DISCORD_COMMAND_INFO_FOR_COMMAND_NAMED_X.ReplaceStringInvariantCase("{x}", command.FullName)}");
                 }
 
                 PreconditionResult preconditionCheckResult = await commandInfo.CheckPreconditionsAsync(context, Server.Services);
@@ -659,12 +659,12 @@ public class CommandInfoHandler : BaseHandler
 
                 if (splitCommand.Length - 1 < minRequiredParameters)
                 {
-                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{command.FullName} => {await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.PARAMETER_COUNT_X_DOES_NOT_MATCH_REQUIRED_COUNT_Y, "{x}", (splitCommand.Length - 1).ToString()), "{y}", $">={minRequiredParameters}")}");
+                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{command.FullName} => {ReplyDictionary.PARAMETER_COUNT_X_DOES_NOT_MATCH_REQUIRED_COUNT_Y.ReplaceStringInvariantCase("{x}", (splitCommand.Length - 1).ToString()).ReplaceStringInvariantCase("{y}", $">={minRequiredParameters}")}");
                 }
 
                 if (splitCommand.Length - 1 > command.Parameters.Count)
                 {
-                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{command.FullName} => {await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.PARAMETER_COUNT_X_DOES_NOT_MATCH_REQUIRED_COUNT_Y, "{x}", (splitCommand.Length - 1).ToString()), "{y}", command.Parameters.Count.ToString())}");
+                    return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{command.FullName} => {ReplyDictionary.PARAMETER_COUNT_X_DOES_NOT_MATCH_REQUIRED_COUNT_Y.ReplaceStringInvariantCase("{x}", (splitCommand.Length - 1).ToString()).ReplaceStringInvariantCase("{y}", command.Parameters.Count.ToString())}");
                 }
 
                 for (int j = 0; j < command.RuntimeParameters.Length; j++)
@@ -686,7 +686,7 @@ public class CommandInfoHandler : BaseHandler
                     {
                         if (!parameterInfo.IsOptional)
                         {
-                            return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", splitCommand[j + 1]), "{y}", parameterInfo.Type.Name)}");
+                            return CustomRuntimeResult<CommandMetaInfo[]>.FromError($"{ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", splitCommand[j + 1]).ReplaceStringInvariantCase("{y}", parameterInfo.Type.Name)}");
                         }
                     }
                 }
@@ -698,7 +698,7 @@ public class CommandInfoHandler : BaseHandler
         return CustomRuntimeResult<CommandMetaInfo[]>.FromSuccess(value: cmdInfos.ToArray());
     }
 
-    private static async Task<CustomRuntimeResult<string[]>> BundleGroups(string[] input, char startIdentifier, char endIdentifier, char groupElementDivider = '\0', char wildcard = '\\', bool removeIdentifiersFromResult = true)
+    private static CustomRuntimeResult<string[]> BundleGroups(string[] input, char startIdentifier, char endIdentifier, char groupElementDivider = '\0', char wildcard = '\\', bool removeIdentifiersFromResult = true)
     {
         // e.g. startIdentifier = '(' , endIdentifier = ')' , endOfGroupAddition = '*'
         // input: string[] { p1 , (p2.0 , p2.1 , p2.2) , p3 , (p4.0 , p4.1) , p5 }
@@ -767,12 +767,12 @@ public class CommandInfoHandler : BaseHandler
 
             if (groupStartIndex > -1 && groupEndIndex < 0)
             {
-                return CustomRuntimeResult<string[]>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.GROUP_IS_MISSING_END_IDENTIFIER_X, "{x}", endIdentifier.ToString()));
+                return CustomRuntimeResult<string[]>.FromError(ReplyDictionary.GROUP_IS_MISSING_END_IDENTIFIER_X.ReplaceStringInvariantCase("{x}", endIdentifier.ToString()));
             }
 
             if (groupStartIndex < 0 && groupEndIndex > -1)
             {
-                return CustomRuntimeResult<string[]>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.GROUP_IS_MISSING_START_IDENTIFIER_X, "{x}", startIdentifier.ToString()));
+                return CustomRuntimeResult<string[]>.FromError(ReplyDictionary.GROUP_IS_MISSING_START_IDENTIFIER_X.ReplaceStringInvariantCase("{x}", startIdentifier.ToString()));
             }
 
             return CustomRuntimeResult<string[]>.FromSuccess(value: merged.ToArray());

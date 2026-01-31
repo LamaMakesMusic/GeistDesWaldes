@@ -40,19 +40,19 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
 
             if (cachedStream != null && cachedStream.IsOnline)
             {
-                body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_STREAMING_FOR_Y, "{x}", channelName);
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
+                body = ReplyDictionary.X_HAS_BEEN_STREAMING_FOR_Y.ReplaceStringInvariantCase("{x}", channelName);
+                body = body.ReplaceStringInvariantCase("{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
             }
             else
             {
                 if (cachedStream == null)
                 {
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_IS_NOT_STREAMING, "{x}", channelName);
+                    body = ReplyDictionary.X_IS_NOT_STREAMING.ReplaceStringInvariantCase("{x}", channelName);
                 }
                 else
                 {
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_LAST_STREAM_Y_AGO, "{x}", channelName);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
+                    body = ReplyDictionary.X_LAST_STREAM_Y_AGO.ReplaceStringInvariantCase("{x}", channelName);
+                    body = body.ReplaceStringInvariantCase("{y}", cachedStream.TimeSinceLastChange.ToString(@"hh\:mm\:ss", Server.CultureInfo));
                 }
             }
 
@@ -91,7 +91,7 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
 
             if (user is not TwitchUser twitchUser)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.USER_X_NOT_A_TWITCH_USER, "{x}", user?.Username ?? "null"));
+                return CustomRuntimeResult.FromError(ReplyDictionary.USER_X_NOT_A_TWITCH_USER.ReplaceStringInvariantCase("{x}", user?.Username ?? "null"));
             }
 
             string body;
@@ -101,9 +101,10 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
             {
                 TimeObject followage = new(DateTime.UtcNow - isFollowerResult.Item1.FollowedAt.ToUniversalTime(), isFollowerResult.Item1.FollowedAt.ToUniversalTime());
 
-                body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_FOLLOWING_Y_FOR_Z_TIME, "{x}", twitchUser.Username);
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", Server.Config.TwitchSettings.TwitchChannelName);
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{z}", followage.ToStringMinimal());
+                body = ReplyDictionary.X_HAS_BEEN_FOLLOWING_Y_FOR_Z_TIME
+                                      .ReplaceStringInvariantCase("{x}", twitchUser.Username)
+                                      .ReplaceStringInvariantCase("{y}", Server.Config.TwitchSettings.TwitchChannelName)
+                                      .ReplaceStringInvariantCase("{z}", followage.ToStringMinimal());
             }
             else if (isFollowerResult.Item2 != null)
             {
@@ -111,7 +112,7 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
             }
             else
             {
-                body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_IS_NOT_A_FOLLOWER_YET, "{x}", twitchUser.Username);
+                body = ReplyDictionary.X_IS_NOT_A_FOLLOWER_YET.ReplaceStringInvariantCase("{x}", twitchUser.Username);
             }
 
 
@@ -152,9 +153,9 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
 
             DateTime startedWatching = DateTime.UtcNow - userResult.ResultValue.TwitchViewTime;
 
-            string body = ReplyDictionary.X_HAS_WATCHED_FOR_Y_TIME;
-            body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", userResult.ResultValue.Name);
-            body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", $"{new TimeObject(DateTime.UtcNow - startedWatching, DateTime.Now.ToUniversalTime()).ToStringMinimal()}");
+            string body = ReplyDictionary.X_HAS_WATCHED_FOR_Y_TIME
+                                         .ReplaceStringInvariantCase("{x}", userResult.ResultValue.Name)
+                                         .ReplaceStringInvariantCase("{y}", $"{new TimeObject(DateTime.UtcNow - startedWatching, DateTime.Now.ToUniversalTime()).ToStringMinimal()}");
 
             ChannelMessage msg = new ChannelMessage(Context)
                                  .SetTemplate(ChannelMessage.MessageTemplateOption.Twitch)
@@ -277,7 +278,7 @@ public class TwitchStreamModule : ModuleBase<CommandContext>, ICommandModule
 
             if (user is not TwitchUser tUser)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.USER_X_NOT_A_TWITCH_USER, "{x}", user?.Username ?? "null"));
+                return CustomRuntimeResult.FromError(ReplyDictionary.USER_X_NOT_A_TWITCH_USER.ReplaceStringInvariantCase("{x}", user?.Username ?? "null"));
             }
 
             try

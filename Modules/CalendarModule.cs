@@ -37,7 +37,7 @@ public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
 
             if (!DateTime.TryParse(day, out DateTime parsedDay))
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y, "{x}", nameof(DateTime)));
+                return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_PARSE_X_TO_Y.ReplaceStringInvariantCase("{x}", nameof(DateTime)));
             }
 
             string body;
@@ -172,11 +172,11 @@ public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<HolidayBehaviour> result = await Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
+                CustomRuntimeResult<HolidayBehaviour> result = Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
 
                 if (!result.IsSuccess)
                 {
-                    return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X, "{x}", holidayName));
+                    return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X.ReplaceStringInvariantCase("{x}", holidayName));
                 }
 
                 await result.ResultValue.ToMessage().SetChannel(Context.Channel).SendAsync();
@@ -195,11 +195,11 @@ public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult<HolidayBehaviour> holidayResult = await Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
+                CustomRuntimeResult<HolidayBehaviour> holidayResult = Server.GetModule<HolidayHandler>().GetHolidayBehaviour(holidayName);
 
                 if (!holidayResult.IsSuccess)
                 {
-                    return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X, "{x}", holidayName));
+                    return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X.ReplaceStringInvariantCase("{x}", holidayName));
                 }
 
                 CustomRuntimeResult<CommandMetaInfo[]> parseResult = await Server.GetModule<CommandInfoHandler>().ParseToSerializableCommandInfo(commands, Context);
@@ -224,10 +224,10 @@ public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
                     }
 
 
-                    CustomRuntimeResult setResult = await Server.GetModule<HolidayHandler>().SetHolidayBehaviour(holidayResult.ResultValue.HolidayName, cmd, behaviourType);
+                    CustomRuntimeResult setResult = Server.GetModule<HolidayHandler>().SetHolidayBehaviour(holidayResult.ResultValue.HolidayName, cmd, behaviourType);
                     if (setResult.IsSuccess)
                     {
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.SAVED_HOLIDAY_BEHAVIOUR_FOR_X, "{x}", holidayResult.ResultValue.HolidayName);
+                        string body = ReplyDictionary.SAVED_HOLIDAY_BEHAVIOUR_FOR_X.ReplaceStringInvariantCase("{x}", holidayResult.ResultValue.HolidayName);
 
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -260,11 +260,11 @@ public class CalendarModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                CustomRuntimeResult removeResult = await Server.GetModule<HolidayHandler>().RemoveHolidayBehaviour(holidayName);
+                CustomRuntimeResult removeResult = Server.GetModule<HolidayHandler>().RemoveHolidayBehaviour(holidayName);
 
                 if (removeResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.REMOVED_HOLIDAY_BEHAVIOUR_FOR_X, "{x}", holidayName);
+                    string body = ReplyDictionary.REMOVED_HOLIDAY_BEHAVIOUR_FOR_X.ReplaceStringInvariantCase("{x}", holidayName);
 
 
                     ChannelMessage msg = new ChannelMessage(Context)
@@ -318,15 +318,15 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (birthdayGetResult.IsSuccess)
                 {
-                    return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS, "{x}", getUserResult.ResultValue.Name));
+                    return CustomRuntimeResult.FromError(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", getUserResult.ResultValue.Name));
                 }
 
                 CustomRuntimeResult addResult = await Server.GetModule<BirthdayHandler>().AddBirthday(getUserResult.ResultValue, date);
 
                 if (addResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", getUserResult.ResultValue.Name);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", Server.CultureInfo));
+                    string body = ReplyDictionary.X_BIRTHDAY_IS_ON_Y.ReplaceStringInvariantCase("{x}", getUserResult.ResultValue.Name);
+                    body = body.ReplaceStringInvariantCase("{y}", date.ToString("dd. MMMM", Server.CultureInfo));
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -375,13 +375,13 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (!result.IsSuccess)
                 {
-                    return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X, "{x}", user.Username));
+                    return CustomRuntimeResult.FromError(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X.ReplaceStringInvariantCase("{x}", user.Username));
                 }
 
                 Birthday birthday = result.ResultValue;
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", user.Username);
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", birthday.BirthDate.ToString("dd. MMMM", Server.CultureInfo));
+                string body = ReplyDictionary.X_BIRTHDAY_IS_ON_Y.ReplaceStringInvariantCase("{x}", user.Username);
+                body = body.ReplaceStringInvariantCase("{y}", birthday.BirthDate.ToString("dd. MMMM", Server.CultureInfo));
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -422,7 +422,7 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
                 CustomRuntimeResult removeResult = await Server.GetModule<BirthdayHandler>().RemoveBirthday(getUserResult.ResultValue);
                 if (removeResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X, "{x}", user.Username);
+                    string body = ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X.ReplaceStringInvariantCase("{x}", user.Username);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Calendar)
@@ -523,15 +523,15 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
                     CustomRuntimeResult<Birthday> birthdayGetResult = await Server.GetModule<BirthdayHandler>().GetBirthday(getUserResult.ResultValue.ForestUserId);
                     if (birthdayGetResult.IsSuccess)
                     {
-                        return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS, "{x}", user.Username));
+                        return CustomRuntimeResult.FromError(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", user.Username));
                     }
 
                     CustomRuntimeResult addResult = await Server.GetModule<BirthdayHandler>().AddBirthday(getUserResult.ResultValue, date);
 
                     if (addResult.IsSuccess)
                     {
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_BIRTHDAY_IS_ON_Y, "{x}", user.Username);
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", date.ToString("dd. MMMM", Server.CultureInfo));
+                        string body = ReplyDictionary.X_BIRTHDAY_IS_ON_Y.ReplaceStringInvariantCase("{x}", user.Username);
+                        body = body.ReplaceStringInvariantCase("{y}", date.ToString("dd. MMMM", Server.CultureInfo));
 
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -575,7 +575,7 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
                     CustomRuntimeResult removeResult = await Server.GetModule<BirthdayHandler>().RemoveBirthday(getUserResult.ResultValue);
                     if (removeResult.IsSuccess)
                     {
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X, "{x}", user.Username);
+                        string body = ReplyDictionary.REMOVED_BIRTHDAY_ENTRY_FOR_X.ReplaceStringInvariantCase("{x}", user.Username);
 
 
                         ChannelMessage msg = new ChannelMessage(Context)
@@ -640,7 +640,7 @@ public class BirthdayModule : ModuleBase<CommandContext>, ICommandModule
                         }
 
 
-                        string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.SAVED_CALLBACK_X, "{x}", behaviourType.ToString());
+                        string body = ReplyDictionary.SAVED_CALLBACK_X.ReplaceStringInvariantCase("{x}", behaviourType.ToString());
 
 
                         ChannelMessage msg = new ChannelMessage(Context)

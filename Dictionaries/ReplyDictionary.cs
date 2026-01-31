@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Discord.Commands;
 using GeistDesWaldes.Communication;
 using GeistDesWaldes.Currency;
@@ -8,7 +7,7 @@ using GeistDesWaldes.UserCommands;
 
 namespace GeistDesWaldes.Dictionaries;
 
-public class ReplyDictionary
+public static class ReplyDictionary
 {
     public const string AFFIRMATIVE = "Alles klar!";
     public const string NEGATIVE = "Oje...";
@@ -254,7 +253,7 @@ public class ReplyDictionary
     public const string STATISTICS_STARTED_RECORDING = "Aufzeichnung erfolgreich gestartet!";
     public const string STATISTICS_STOPPED_RECORDING = "Aufzeichnung erfolgreich beendet!";
 
-    public static string GetOutputTextForEnum(Enum enumeration)
+    public static string GetOutputTextForEnum(this Enum enumeration)
     {
         if (enumeration is ScheduledEvent.RepetitionOption repetitionOption)
         {
@@ -334,36 +333,19 @@ public class ReplyDictionary
         return "UNDEFINED";
     }
 
-    public static Task<string> ReplaceStringInvariantCase(string input, string replacePattern, string replaceValue)
+    public static string ReplaceStringInvariantCase(this string input, string pattern, string value)
     {
-        return Task.Run(() =>
-        {
-            if (string.IsNullOrEmpty(input))
-            {
-                input = "";
-            }
-
-            if (string.IsNullOrEmpty(replaceValue))
-            {
-                replaceValue = "";
-            }
-
-            int idx = input.IndexOf(replacePattern, StringComparison.OrdinalIgnoreCase);
-
-            if (idx < 0)
-            {
-                return input;
-            }
-
-            return input.Insert(idx, replaceValue).Remove(idx + replaceValue.Length, replacePattern.Length);
-        });
+        if (string.IsNullOrEmpty(input))
+            return value;
+        
+        return input.Replace(pattern, value, StringComparison.OrdinalIgnoreCase);
     }
 
-    public static async Task<ChannelMessage> GetValueModifiedMessage(ICommandContext context, string valueName, string oldValue, string newValue)
+    public static ChannelMessage GetValueModifiedMessage(ICommandContext context, string valueName, string oldValue, string newValue)
     {
-        string description = await ReplaceStringInvariantCase(VALUE_X_MODIFIED_Y_TO_Z, "{x}", valueName);
-        description = await ReplaceStringInvariantCase(description, "{y}", oldValue);
-        description = await ReplaceStringInvariantCase(description, "{z}", newValue);
+        string description = VALUE_X_MODIFIED_Y_TO_Z.ReplaceStringInvariantCase("{x}", valueName)
+                                                    .ReplaceStringInvariantCase("{y}", oldValue)
+                                                    .ReplaceStringInvariantCase("{z}", newValue);
 
         ChannelMessage msg = new ChannelMessage(context)
                              .SetTemplate(ChannelMessage.MessageTemplateOption.Modified)
@@ -374,10 +356,10 @@ public class ReplyDictionary
         return msg;
     }
 
-    public static async Task<ChannelMessage> GetValueMessage(ICommandContext context, string valueName, string value)
+    public static ChannelMessage GetValueMessage(ICommandContext context, string valueName, string value)
     {
-        string description = await ReplaceStringInvariantCase(VALUE_X_IS_SET_TO_Y, "{x}", valueName);
-        description = await ReplaceStringInvariantCase(description, "{y}", value);
+        string description = VALUE_X_IS_SET_TO_Y.ReplaceStringInvariantCase("{x}", valueName)
+                                                .ReplaceStringInvariantCase("{y}", value);
 
         ChannelMessage msg = new ChannelMessage(context)
                              .SetTemplate(ChannelMessage.MessageTemplateOption.Information)

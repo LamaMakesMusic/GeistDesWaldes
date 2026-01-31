@@ -56,7 +56,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.GeneralSettings.CommandPrefix = prefix;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{oldValue}", $"{prefix}");
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{oldValue}", $"{prefix}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -73,7 +73,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{Server.Config.GeneralSettings.CommandPrefix}");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.CommandPrefix), $"{Server.Config.GeneralSettings.CommandPrefix}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -106,7 +106,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.GeneralSettings.PollVotePrefix = prefix;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{oldValue}", $"{prefix}");
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{oldValue}", $"{prefix}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -123,7 +123,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{Server.Config.GeneralSettings.PollVotePrefix}");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(GeneralSettingsEntry.PollVotePrefix), $"{Server.Config.GeneralSettings.PollVotePrefix}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -151,7 +151,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.UserSettings.UserCooldownInSeconds = seconds;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{oldValue}s", $"{seconds}s");
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{oldValue}s", $"{seconds}s");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -168,7 +168,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{Server.Config.UserSettings.UserCooldownInSeconds}s");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(UserSettingsEntry.UserCooldownInSeconds), $"{Server.Config.UserSettings.UserCooldownInSeconds}s");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -203,7 +203,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.DiscordSettings.DefaultBotTextChannel = textChannel.Id;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), oldValue != null ? oldValue.Name : "null", textChannel.Name);
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), oldValue != null ? oldValue.Name : "null", textChannel.Name);
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -221,7 +221,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             try
             {
                 ITextChannel oldValue = await Launcher.Instance.GetChannel<ITextChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), oldValue != null ? oldValue.Name : "null");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotTextChannel), oldValue != null ? oldValue.Name : "null");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -249,7 +249,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.DiscordSettings.DefaultBotVoiceChannel = voiceChannel.Id;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), oldValue != null ? oldValue.Name : "null", voiceChannel.Name);
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), oldValue != null ? oldValue.Name : "null", voiceChannel.Name);
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -267,7 +267,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             try
             {
                 IVoiceChannel oldValue = await Launcher.Instance.GetChannel<IVoiceChannel>(Server.Config.DiscordSettings.DefaultBotVoiceChannel);
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), oldValue != null ? oldValue.Name : "null");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(DiscordSettingsEntry.DefaultBotVoiceChannel), oldValue != null ? oldValue.Name : "null");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -306,7 +306,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     await TwitchIntegrationHandler.Instance.StartListening(Server);
                 }
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), oldValue, channelName);
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), oldValue, channelName);
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -323,7 +323,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), Server.Config.TwitchSettings.TwitchChannelName);
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchChannelName), Server.Config.TwitchSettings.TwitchChannelName);
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -347,7 +347,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 Server.Config.TwitchSettings.TwitchMessageChannelId = newValue;
                 await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{oldValue}", $"{newValue}");
+                ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{oldValue}", $"{newValue}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -364,7 +364,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
         {
             try
             {
-                ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{Server.Config.TwitchSettings.TwitchMessageChannelId}");
+                ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchMessageChannelId), $"{Server.Config.TwitchSettings.TwitchMessageChannelId}");
                 await msg.SendAsync();
 
                 return CustomRuntimeResult.FromSuccess();
@@ -398,7 +398,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes = minutes;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -415,7 +415,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamOneShotWindowInMinutes), $"{Server.Config.TwitchSettings.LivestreamOneShotWindowInMinutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -443,7 +443,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes = minutes;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{oldValue} minutes", $"{minutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -460,7 +460,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMinutes), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMinutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -488,7 +488,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages = messages;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{oldValue} messages", $"{messages} messages");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{oldValue} messages", $"{messages} messages");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -505,7 +505,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages} messages");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.LivestreamActionIntervalMinMessages), $"{Server.Config.TwitchSettings.LivestreamActionIntervalMinMessages} messages");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -535,7 +535,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval = points;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{oldValue}", $"{points}");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{oldValue}", $"{points}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -552,7 +552,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval}");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsPerMonitorInterval), $"{Server.Config.TwitchSettings.TwitchPointsPerMonitorInterval}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -575,7 +575,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters = points;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{oldValue}", $"{points}");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{oldValue}", $"{points}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -592,7 +592,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters}");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchPointsBonusForActiveChatters), $"{Server.Config.TwitchSettings.TwitchPointsBonusForActiveChatters}");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -615,7 +615,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.ActiveChatterWindowInMinutes = minutes;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -632,7 +632,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{Server.Config.TwitchSettings.ActiveChatterWindowInMinutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.ActiveChatterWindowInMinutes), $"{Server.Config.TwitchSettings.ActiveChatterWindowInMinutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -662,7 +662,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                     Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes = minutes;
                     await ConfigurationHandler.SaveConfigToFile(Server.Config);
 
-                    ChannelMessage msg = await ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueModifiedMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{oldValue} minutes", $"{minutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -679,7 +679,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
             {
                 try
                 {
-                    ChannelMessage msg = await ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes} minutes");
+                    ChannelMessage msg = ReplyDictionary.GetValueMessage(Context, nameof(TwitchSettingsEntry.TwitchFollowAlertCooldownInMinutes), $"{Server.Config.TwitchSettings.TwitchFollowAlertCooldownInMinutes} minutes");
                     await msg.SendAsync();
 
                     return CustomRuntimeResult.FromSuccess();
@@ -708,7 +708,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (addResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_X_CREATED, "{x}", name);
+                    string body = ReplyDictionary.INTERVAL_ACTION_X_CREATED.ReplaceStringInvariantCase("{x}", name);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -732,7 +732,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (result.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_X_REMOVED, "{x}", name);
+                    string body = ReplyDictionary.INTERVAL_ACTION_X_REMOVED.ReplaceStringInvariantCase("{x}", name);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -781,7 +781,7 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
                 }
                 else
                 {
-                    CustomRuntimeResult<CustomCommand> result = await Server.GetModule<TwitchLivestreamIntervalActionHandler>().TryGetAction(name);
+                    CustomRuntimeResult<CustomCommand> result = Server.GetModule<TwitchLivestreamIntervalActionHandler>().TryGetAction(name);
 
                     if (result.IsSuccess)
                     {

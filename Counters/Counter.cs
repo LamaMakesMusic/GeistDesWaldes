@@ -33,9 +33,9 @@ public class Counter
         NameHash = name.ToLower().GetHashCode();
     }
 
-    public Task<string> ReturnValueText()
+    public string ReturnValueText()
     {
-        return ReplyDictionary.ReplaceStringInvariantCase(Description, "{x}", Value.ToString());
+        return Description.ReplaceStringInvariantCase("{x}", Value.ToString());
     }
 
     public void IncreaseCounterValue(int amount = 1)
@@ -47,7 +47,7 @@ public class Counter
     {
         string header = Name;
         string headerEmoji = null;
-        string body = await ReturnValueText();
+        string body = ReturnValueText();
 
         if (arg2.Length > 0 && arg2[0]?.ToString() is { } parameter)
         {
@@ -61,21 +61,21 @@ public class Counter
             {
                 IncreaseCounterValue(Math.Abs(amount));
 
-                header = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_INCREASED, "{x}", Name);
+                header = ReplyDictionary.COUNTER_X_INCREASED.ReplaceStringInvariantCase("{x}", Name);
                 headerEmoji = EmojiDictionary.ARROW_DOUBLE_UP;
-                body = await ReturnValueText();
+                body = ReturnValueText();
             }
             else if (parameter == "--")
             {
                 IncreaseCounterValue(Math.Abs(amount) * -1);
 
-                header = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_DECREASED, "{x}", Name);
+                header = ReplyDictionary.COUNTER_X_DECREASED.ReplaceStringInvariantCase("{x}", Name);
                 headerEmoji = EmojiDictionary.ARROW_DOUBLE_DOWN;
-                body = await ReturnValueText();
+                body = ReturnValueText();
             }
             else
             {
-                throw new Exception(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_UNDEFINED_PARAMETER_X, "{x}", parameter));
+                throw new Exception(ReplyDictionary.COUNTER_UNDEFINED_PARAMETER_X.ReplaceStringInvariantCase("{x}", parameter));
             }
 
             CounterHandler handler = services.GetService<CounterHandler>();

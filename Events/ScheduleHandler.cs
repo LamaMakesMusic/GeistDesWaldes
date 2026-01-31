@@ -185,7 +185,7 @@ public class ScheduleHandler : BaseHandler
             if ((await GetScheduledEvent(scheduledEvent.CommandToExecute?.Name)).IsSuccess)
             {
                 scheduledEvent.CancelKickOff();
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.EVENT_NAMED_X_ALREADY_EXISTS, "{X}", scheduledEvent.CommandToExecute?.Name));
+                return CustomRuntimeResult.FromError(ReplyDictionary.EVENT_NAMED_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{X}", scheduledEvent.CommandToExecute?.Name));
             }
 
             EventSchedule.Add(scheduledEvent);
@@ -235,7 +235,7 @@ public class ScheduleHandler : BaseHandler
                 }
             }
 
-            string message = Task.Run(() => ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_EVENT_NAMED_Y, "{x}", eventName)).GetAwaiter().GetResult();
+            string message = Task.Run(() => ReplyDictionary.COULD_NOT_FIND_EVENT_NAMED_Y.ReplaceStringInvariantCase("{x}", eventName)).GetAwaiter().GetResult();
             return CustomRuntimeResult<ScheduledEvent>.FromError(message);
         });
     }

@@ -381,14 +381,14 @@ public class BirthdayHandler : BaseHandler
             return CustomRuntimeResult<Birthday>.FromSuccess(value: result);
         }
 
-        return CustomRuntimeResult<Birthday>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X, "{x}", userId.ToString()));
+        return CustomRuntimeResult<Birthday>.FromError(ReplyDictionary.COULD_NOT_FIND_BIRTHDAY_FOR_X.ReplaceStringInvariantCase("{x}", userId.ToString()));
     }
 
     public async Task<CustomRuntimeResult> AddBirthday(ForestUser user, DateTime date)
     {
         if ((await GetBirthday(user.ForestUserId)).IsSuccess)
         {
-            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS, "{x}", user.Name));
+            return CustomRuntimeResult.FromError(ReplyDictionary.BIRTHDAY_FOR_USER_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", user.Name));
         }
 
         BirthdayDictionary.Birthdays.Add(new Birthday(user.ForestUserId, date));

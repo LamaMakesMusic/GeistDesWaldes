@@ -16,12 +16,12 @@ public class CounterHandler : BaseHandler
     
     private const string COUNTER_FILE_NAME = "Counter";
     private ModuleInfo _moduleInfo;
-    public List<Counter> Counters;
+    private List<Counter> _counters;
 
 
     public CounterHandler(Server server) : base(server)
     {
-        Counters = new List<Counter>();
+        _counters = new List<Counter>();
     }
 
     public override async Task OnServerStartUp()
@@ -32,7 +32,7 @@ public class CounterHandler : BaseHandler
 
     private async Task InitializeCounterHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, Counters);
+        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, _counters);
         await LoadCounterCollectionFromFile();
 
         await UpdateCommandService();
@@ -48,9 +48,9 @@ public class CounterHandler : BaseHandler
     {
         List<int> problematicEntries = [];
 
-        for (int i = 0; i < Counters.Count; i++)
+        for (int i = 0; i < _counters.Count; i++)
         {
-            if (Counters[i] == null || string.IsNullOrWhiteSpace(Counters[i].Name))
+            if (_counters[i] == null || string.IsNullOrWhiteSpace(_counters[i].Name))
             {
                 problematicEntries.Add(i);
             }
@@ -62,7 +62,7 @@ public class CounterHandler : BaseHandler
 
             for (int i = 0; i < problematicEntries.Count; i++)
             {
-                Counter counter = Counters[problematicEntries[i]];
+                Counter counter = _counters[problematicEntries[i]];
 
                 if (counter == null)
                 {
@@ -86,11 +86,11 @@ public class CounterHandler : BaseHandler
     public CustomRuntimeResult<Counter> GetCounter(string counterName)
     {
         int hash = counterName.ToLower().GetHashCode();
-        for (int i = 0; i < Counters.Count; i++)
+        for (int i = 0; i < _counters.Count; i++)
         {
-            if (Counters[i].NameHash == hash)
+            if (_counters[i].NameHash == hash)
             {
-                return CustomRuntimeResult<Counter>.FromSuccess(value: Counters[i]);
+                return CustomRuntimeResult<Counter>.FromSuccess(value: _counters[i]);
             }
         }
 
@@ -104,7 +104,7 @@ public class CounterHandler : BaseHandler
             return CustomRuntimeResult.FromError($"{ReplyDictionary.COUNTER_WITH_NAME_ALREADY_EXISTS}: '{counter.Name}'!");
         }
 
-        Counters.Add(counter);
+        _counters.Add(counter);
 
         await UpdateCommandService();
 
@@ -119,7 +119,7 @@ public class CounterHandler : BaseHandler
 
         if (runtimeResult.ResultValue is { } counter)
         {
-            Counters.Remove(counter);
+            _counters.Remove(counter);
 
             await UpdateCommandService();
 
@@ -137,9 +137,9 @@ public class CounterHandler : BaseHandler
         {
             StringBuilder sb = new();
 
-            for (int i = 0; i < Counters.Count; i++)
+            for (int i = 0; i < _counters.Count; i++)
             {
-                sb.AppendLine(Counters[i].Name);
+                sb.AppendLine(_counters[i].Name);
             }
 
             return sb.ToString();
@@ -148,7 +148,7 @@ public class CounterHandler : BaseHandler
 
     public Task SaveCounterCollectionToFile()
     {
-        return GenericXmlSerializer.SaveAsync<List<Counter>>(Server.LogHandler, Counters, COUNTER_FILE_NAME, Server.ServerFilesDirectoryPath);
+        return GenericXmlSerializer.SaveAsync<List<Counter>>(Server.LogHandler, _counters, COUNTER_FILE_NAME, Server.ServerFilesDirectoryPath);
     }
 
     public async Task LoadCounterCollectionFromFile()
@@ -163,13 +163,13 @@ public class CounterHandler : BaseHandler
         }
         else
         {
-            Counters = loadedCounters;
+            _counters = loadedCounters;
         }
 
         //Ensure Name Hash for externally added Counters
-        for (int i = 0; i < Counters.Count; i++)
+        for (int i = 0; i < _counters.Count; i++)
         {
-            Counters[i].SetName(Counters[i].Name);
+            _counters[i].SetName(_counters[i].Name);
         }
     }
 
@@ -185,9 +185,9 @@ public class CounterHandler : BaseHandler
             _moduleInfo = await Server.CommandService.CreateModuleAsync("",
                 mb =>
                 {
-                    for (int i = 0; i < Counters.Count; i++)
+                    for (int i = 0; i < _counters.Count; i++)
                     {
-                        mb.AddCommand(Counters[i].Name, Counters[i].ExecuteCallback,
+                        mb.AddCommand(_counters[i].Name, _counters[i].ExecuteCallback,
                             cb => cb.WithSummary("Custom Counter").AddParameter<string>("param1", p1 => p1.IsOptional = true).AddParameter<int>("param2", p2 => p2.IsOptional = true)
                         );
                     }

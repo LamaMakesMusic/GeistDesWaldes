@@ -48,16 +48,16 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
 
     public Task Log(LogMessage message, int consoleColor = -1)
     {
+        if ((int)message.Severity > Launcher.LogLevel)
+        {
+            return Task.CompletedTask;
+        }
+        
         string logLine = $"{DateTime.Now,-19} [{message.Severity,8}] {message.Source,30}: {message.Message} {message.Exception}";
 
         lock (_logListLocker)
         {
             _logList.AppendLine(logLine);
-        }
-
-        if ((int)message.Severity > Launcher.LogLevel)
-        {
-            return Task.CompletedTask;
         }
 
         lock (_logConsoleLocker)

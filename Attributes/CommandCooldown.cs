@@ -25,9 +25,9 @@ public class CommandCooldown : PreconditionAttribute
 
         if (cdLeft > 0)
         {
-            string errorReason = $"ERROR_COOLDOWN{ReplyDictionary.COMMAND_X_IS_STILL_ON_COOLDOWN_FOR_Y_SECONDS}";
-            errorReason = await ReplyDictionary.ReplaceStringInvariantCase(errorReason, "{x}", command.Name);
-            errorReason = await ReplyDictionary.ReplaceStringInvariantCase(errorReason, "{y}", cdLeft.ToString("F1"));
+            string errorReason = $"ERROR_COOLDOWN{ReplyDictionary.COMMAND_X_IS_STILL_ON_COOLDOWN_FOR_Y_SECONDS}"
+                .ReplaceStringInvariantCase("{x}", command.Name)
+                .ReplaceStringInvariantCase("{y}", cdLeft.ToString("F1"));
 
             await logger.Log(new LogMessage(LogSeverity.Debug, nameof(CheckPermissionsAsync), $"Denied {nameof(CommandCooldown)}-Permission for '{command.Name}' -> {errorReason}"), (int)ConsoleColor.Red);
             return PreconditionResult.FromError(errorReason);

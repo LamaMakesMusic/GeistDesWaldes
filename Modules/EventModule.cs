@@ -110,7 +110,7 @@ public class EventModule : ModuleBase<CommandContext>, ICommandModule
 
             if (removeResult.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.EVENT_NAMED_X_REMOVED, "{x}", evt.CommandToExecute?.Name);
+                string body = ReplyDictionary.EVENT_NAMED_X_REMOVED.ReplaceStringInvariantCase("{x}", evt.CommandToExecute?.Name);
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Events)
                                      .AddContent(new ChannelMessageContent()

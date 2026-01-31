@@ -50,7 +50,7 @@ public class CounterModule : ModuleBase<CommandContext>, ICommandModule
 
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_CREATED, "{X}", counterName);
+                string body = ReplyDictionary.COUNTER_X_CREATED.ReplaceStringInvariantCase("{X}", counterName);
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
@@ -72,7 +72,7 @@ public class CounterModule : ModuleBase<CommandContext>, ICommandModule
             CustomRuntimeResult result = await Server.GetModule<CounterHandler>().RemoveCounterAsync(counterName);
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_REMOVED, "{X}", counterName);
+                string body = ReplyDictionary.COUNTER_X_REMOVED.ReplaceStringInvariantCase("{X}", counterName);
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
@@ -98,7 +98,7 @@ public class CounterModule : ModuleBase<CommandContext>, ICommandModule
                 await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
 
-                string body = await counter.ReturnValueText();
+                string body = counter.ReturnValueText();
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)
@@ -124,7 +124,7 @@ public class CounterModule : ModuleBase<CommandContext>, ICommandModule
 
                 await Server.GetModule<CounterHandler>().SaveCounterCollectionToFile();
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COUNTER_X_DESCRIPTION_CHANGED, "{x}", counterName);
+                string body = ReplyDictionary.COUNTER_X_DESCRIPTION_CHANGED.ReplaceStringInvariantCase("{x}", counterName);
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Counter)

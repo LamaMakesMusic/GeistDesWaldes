@@ -136,7 +136,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
 
             if (_actions.Any(m => m != null && m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_NAMED_X_ALREADY_EXISTS, "{x}", name));
+                return CustomRuntimeResult.FromError(ReplyDictionary.INTERVAL_ACTION_NAMED_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", name));
             }
 
             CustomRuntimeResult<CommandMetaInfo[]> parseResult = await _infoHandler.ParseToSerializableCommandInfo(commandsToExecute, context);
@@ -178,7 +178,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
                 return CustomRuntimeResult.FromSuccess();
             }
 
-            return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_NAMED_X_NOT_FOUND, "{x}", name));
+            return CustomRuntimeResult.FromError(ReplyDictionary.INTERVAL_ACTION_NAMED_X_NOT_FOUND.ReplaceStringInvariantCase("{x}", name));
         }
         catch (Exception e)
         {
@@ -186,7 +186,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
         }
     }
 
-    public async Task<CustomRuntimeResult<CustomCommand>> TryGetAction(string name)
+    public CustomRuntimeResult<CustomCommand> TryGetAction(string name)
     {
         try
         {
@@ -194,10 +194,8 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
 
             CustomCommand command = _actions.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-            if (command == default)
-            {
-                return CustomRuntimeResult<CustomCommand>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.INTERVAL_ACTION_NAMED_X_NOT_FOUND, "{x}", name));
-            }
+            if (command == null)
+                return CustomRuntimeResult<CustomCommand>.FromError(ReplyDictionary.INTERVAL_ACTION_NAMED_X_NOT_FOUND.ReplaceStringInvariantCase("{x}", name));
 
             return CustomRuntimeResult<CustomCommand>.FromSuccess(value: command);
         }

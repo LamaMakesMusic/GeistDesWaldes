@@ -59,49 +59,50 @@ public class PollHandler : BaseHandler
         StringBuilder builder = new("Polls ERROR:\n");
         int startLength = builder.Length;
 
-        foreach (ChannelPoll channelPoll in _currentPolls)
-        {
-            StringBuilder subBuilder = new($"...[{channelPoll.ChannelId}]");
-            int subStartLength = subBuilder.Length;
-
-            if (channelPoll.Polls?.Count > 0)
+        lock(_pollsLock)
+            foreach (ChannelPoll channelPoll in _currentPolls)
             {
-                if (channelPoll.Polls?.Count > Server.Config.GeneralSettings.MaxPollsPerChannel)
+                StringBuilder subBuilder = new($"...[{channelPoll.ChannelId}]");
+                int subStartLength = subBuilder.Length;
+
+                if (channelPoll.Polls?.Count > 0)
                 {
-                    subBuilder.Append(" | Poll Limit exceeded!");
-                }
-                else
-                {
-                    for (int i = 0; i < channelPoll.Polls?.Count; i++)
+                    if (channelPoll.Polls?.Count > Server.Config.GeneralSettings.MaxPollsPerChannel)
                     {
-                        if (channelPoll.Polls[i].PollOptions?.Count > 0)
+                        subBuilder.Append(" | Poll Limit exceeded!");
+                    }
+                    else
+                    {
+                        for (int i = 0; i < channelPoll.Polls?.Count; i++)
                         {
-                            for (int j = 0; j < channelPoll.Polls[i].PollOptions.Count; j++)
+                            if (channelPoll.Polls[i].PollOptions?.Count > 0)
                             {
-                                if (string.IsNullOrEmpty(channelPoll.Polls[i].PollOptions[j].Identifier))
+                                for (int j = 0; j < channelPoll.Polls[i].PollOptions.Count; j++)
                                 {
-                                    subBuilder.Append($" | Poll Option ID missing! [{j}]");
+                                    if (string.IsNullOrEmpty(channelPoll.Polls[i].PollOptions[j].Identifier))
+                                    {
+                                        subBuilder.Append($" | Poll Option ID missing! [{j}]");
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            subBuilder.Append(" | No Poll Options found!");
+                            else
+                            {
+                                subBuilder.Append(" | No Poll Options found!");
+                            }
                         }
                     }
                 }
-            }
-            else
-            {
-                subBuilder.Append(" | Poll List is empty!");
-            }
+                else
+                {
+                    subBuilder.Append(" | Poll List is empty!");
+                }
 
 
-            if (subBuilder.Length > subStartLength)
-            {
-                builder.AppendLine(subBuilder.ToString());
+                if (subBuilder.Length > subStartLength)
+                {
+                    builder.AppendLine(subBuilder.ToString());
+                }
             }
-        }
 
 
         if (builder.Length > startLength)
@@ -123,7 +124,7 @@ public class PollHandler : BaseHandler
 
             if (pollCount >= Server.Config.GeneralSettings.MaxPollsPerChannel)
             {
-                return CustomRuntimeResult<Poll>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.POLL_MAX_POLLS_X_PER_CHANNEL_REACHED, "{x}", Server.Config.GeneralSettings.MaxPollsPerChannel.ToString()));
+                return CustomRuntimeResult<Poll>.FromError(ReplyDictionary.POLL_MAX_POLLS_X_PER_CHANNEL_REACHED.ReplaceStringInvariantCase("{x}", Server.Config.GeneralSettings.MaxPollsPerChannel.ToString()));
             }
 
 
@@ -330,7 +331,8 @@ public class PollHandler : BaseHandler
 
     private Task SavePollsToFile()
     {
-        return GenericXmlSerializer.SaveAsync<List<ChannelPoll>>(Server.LogHandler, _currentPolls, POLLS_FILE_NAME, Server.ServerFilesDirectoryPath);
+        lock (_pollsLock)
+            return GenericXmlSerializer.SaveAsync<List<ChannelPoll>>(Server.LogHandler, _currentPolls, POLLS_FILE_NAME, Server.ServerFilesDirectoryPath);
     }
 
     private async Task LoadPollsFromFile()

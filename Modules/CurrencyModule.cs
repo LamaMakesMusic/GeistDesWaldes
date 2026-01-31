@@ -31,10 +31,9 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
 
             if (getResult.IsSuccess)
             {
-                string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage;
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", Context.User.Username);
-                body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", getResult.ResultValue.ToString());
-
+                string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage
+                                    .ReplaceStringInvariantCase("{x}", Context.User.Username)
+                                    .ReplaceStringInvariantCase("{y}", getResult.ResultValue.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
@@ -68,7 +67,7 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
 
             if (amount < 1)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.PARAMETER_MUST_BE_GREATER_X, "{x}", "0"));
+                return CustomRuntimeResult.FromError(ReplyDictionary.PARAMETER_MUST_BE_GREATER_X.ReplaceStringInvariantCase("{x}", "0"));
             }
 
 
@@ -85,11 +84,10 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
                     CustomRuntimeResult transferResult = await Server.GetModule<CurrencyHandler>().TransferCurrencyBetweenUsers(sender, receiver, amount);
                     if (transferResult.IsSuccess)
                     {
-                        string body = Server.GetModule<CurrencyHandler>().CustomizationData.TransferedPointsMessage;
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", Context.User.Username);
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", amount.ToString());
-                        body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{z}", targetUser.Username);
-
+                        string body = Server.GetModule<CurrencyHandler>().CustomizationData.TransferedPointsMessage
+                                            .ReplaceStringInvariantCase("{x}", Context.User.Username)
+                                            .ReplaceStringInvariantCase("{y}", amount.ToString())
+                                            .ReplaceStringInvariantCase("{z}", targetUser.Username);
 
                         ChannelMessage msg = new ChannelMessage(Context)
                                              .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
@@ -202,10 +200,9 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
                 CustomRuntimeResult result = await Server.GetModule<CurrencyHandler>().AddCurrencyToUser(targetUser, amount);
                 if (result.IsSuccess)
                 {
-                    string body = ReplyDictionary.X_RECEIVED_Y_POINTS;
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", targetUser.Username);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", amount.ToString());
-
+                    string body = ReplyDictionary.X_RECEIVED_Y_POINTS
+                                                 .ReplaceStringInvariantCase("{x}", targetUser.Username)
+                                                 .ReplaceStringInvariantCase("{y}", amount.ToString());
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
@@ -242,10 +239,9 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (result.IsSuccess)
                 {
-                    string body = ReplyDictionary.REMOVED_Y_POINTS_FROM_X;
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", targetUser.Username);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", amount.ToString());
-
+                    string body = ReplyDictionary.REMOVED_Y_POINTS_FROM_X
+                                                 .ReplaceStringInvariantCase("{x}", targetUser.Username)
+                                                 .ReplaceStringInvariantCase("{y}", amount.ToString());
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
@@ -275,10 +271,9 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (getResult.IsSuccess)
                 {
-                    string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage;
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{x}", user.Username);
-                    body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{y}", getResult.ResultValue.ToString());
-
+                    string body = Server.GetModule<CurrencyHandler>().CustomizationData.PointsToStringMessage
+                                        .ReplaceStringInvariantCase("{x}", user.Username)
+                                        .ReplaceStringInvariantCase("{y}", getResult.ResultValue.ToString());
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
@@ -337,7 +332,7 @@ public class CurrencyModule : ModuleBase<CommandContext>, ICommandModule
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Points)
                                      .AddContent(new ChannelMessageContent()
-                                                 .SetTitle($"{ReplyDictionary.CATEGORY}: '{ReplyDictionary.GetOutputTextForEnum(type)}'", EmojiDictionary.INFO)
+                                                 .SetTitle($"{ReplyDictionary.CATEGORY}: '{type.GetOutputTextForEnum()}'", EmojiDictionary.INFO)
                                                  .SetDescription($"'{Server.GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(type)}'")
                                      );
 

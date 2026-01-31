@@ -72,19 +72,17 @@ public class LayoutTemplateHandler : BaseHandler
     }
 
 
-    public async Task<CustomRuntimeResult<LayoutTemplate>> GetTemplate(string templateName)
+    public CustomRuntimeResult<LayoutTemplate> GetTemplate(string templateName)
     {
         LayoutTemplate result = TemplateDictionary.Templates.Find(t => t.TemplateNameHash == templateName.ToLower().GetHashCode());
 
         if (result != null)
-        {
             return CustomRuntimeResult<LayoutTemplate>.FromSuccess(value: result);
-        }
 
-        return CustomRuntimeResult<LayoutTemplate>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_NAMED_X_DOES_NOT_EXISTS, "{x}", templateName));
+        return CustomRuntimeResult<LayoutTemplate>.FromError(ReplyDictionary.TEMPLATE_NAMED_X_DOES_NOT_EXISTS.ReplaceStringInvariantCase("{x}", templateName));
     }
 
-    public async Task<CustomRuntimeResult> AddTemplate(LayoutTemplate template)
+    public CustomRuntimeResult AddTemplate(LayoutTemplate template)
     {
         try
         {
@@ -93,9 +91,9 @@ public class LayoutTemplateHandler : BaseHandler
                 throw new Exception(ReplyDictionary.PARAMETER_MUST_NOT_BE_EMPTY);
             }
 
-            if ((await GetTemplate(template.TemplateName)).IsSuccess)
+            if ((GetTemplate(template.TemplateName)).IsSuccess)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_NAMED_X_ALREADY_EXISTS, "{x}", template.TemplateName));
+                return CustomRuntimeResult.FromError(ReplyDictionary.TEMPLATE_NAMED_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", template.TemplateName));
             }
 
             TemplateDictionary.Templates.Add(template);
@@ -112,7 +110,7 @@ public class LayoutTemplateHandler : BaseHandler
     {
         try
         {
-            CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(templateName);
+            CustomRuntimeResult<LayoutTemplate> getResult = GetTemplate(templateName);
 
             if (getResult.IsSuccess)
             {
@@ -138,18 +136,18 @@ public class LayoutTemplateHandler : BaseHandler
         }
     }
 
-    public async Task<CustomRuntimeResult> CreateTemplate(string templateName)
+    public CustomRuntimeResult CreateTemplate(string templateName)
     {
         try
         {
-            if ((await GetTemplate(templateName)).IsSuccess)
+            if ((GetTemplate(templateName)).IsSuccess)
             {
-                return CustomRuntimeResult.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.TEMPLATE_NAMED_X_ALREADY_EXISTS, "{x}", templateName));
+                return CustomRuntimeResult.FromError(ReplyDictionary.TEMPLATE_NAMED_X_ALREADY_EXISTS.ReplaceStringInvariantCase("{x}", templateName));
             }
 
             LayoutTemplate result = new(templateName);
 
-            return await AddTemplate(result);
+            return AddTemplate(result);
         }
         catch (Exception e)
         {
@@ -171,7 +169,7 @@ public class LayoutTemplateHandler : BaseHandler
 
             _inProgress = true;
 
-            CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(templateName);
+            CustomRuntimeResult<LayoutTemplate> getResult = GetTemplate(templateName);
 
             if (getResult.IsSuccess)
             {
@@ -228,7 +226,7 @@ public class LayoutTemplateHandler : BaseHandler
             }
             else
             {
-                CustomRuntimeResult<LayoutTemplate> getResult = await GetTemplate(TemplateDictionary.ActiveTemplate);
+                CustomRuntimeResult<LayoutTemplate> getResult = GetTemplate(TemplateDictionary.ActiveTemplate);
 
                 if (getResult.IsSuccess)
                 {

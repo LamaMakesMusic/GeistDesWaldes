@@ -38,7 +38,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (addResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CALLBACK_X_CREATED, "{x}", callbackType.ToString());
+                    string body = ReplyDictionary.CALLBACK_X_CREATED.ReplaceStringInvariantCase("{x}", callbackType.ToString());
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -68,7 +68,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
                 await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
+                string body = ReplyDictionary.UPDATED_CALLBACK_X.ReplaceStringInvariantCase("{x}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -95,7 +95,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
                 await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
+                string body = ReplyDictionary.UPDATED_CALLBACK_X.ReplaceStringInvariantCase("{x}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -118,7 +118,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CALLBACK_X_CLEARED, "{X}", callbackType.ToString());
+                string body = ReplyDictionary.CALLBACK_X_CLEARED.ReplaceStringInvariantCase("{X}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -144,7 +144,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
                                      .AddContent(new ChannelMessageContent()
-                                                 .SetTitle($"{ReplyDictionary.GetOutputTextForEnum(callbackType)}", EmojiDictionary.INFO)
+                                                 .SetTitle($"{callbackType.GetOutputTextForEnum()}", EmojiDictionary.INFO)
                                                  .SetDescription("Callback"))
                                      .AddContent(result.ResultValue.ActionsToMessageContent())
                                      .SetFooter(result.ResultValue.TargetChannelToString());
@@ -201,7 +201,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
                 if (addResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CALLBACK_X_CREATED, "{X}", callbackType.ToString());
+                    string body = ReplyDictionary.CALLBACK_X_CREATED.ReplaceStringInvariantCase("{X}", callbackType.ToString());
 
 
                     ChannelMessage msg = new ChannelMessage(Context)
@@ -228,11 +228,11 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
             if (result.IsSuccess)
             {
-                result.ResultValue.TextChannelContextId = channel?.Id ?? default;
+                result.ResultValue.TextChannelContextId = channel?.Id ?? 0;
 
                 await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
+                string body = ReplyDictionary.UPDATED_CALLBACK_X.ReplaceStringInvariantCase("{x}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -259,7 +259,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
                 await Server.GetModule<UserCallbackHandler>().SaveUserCallbacksToFile();
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.UPDATED_CALLBACK_X, "{x}", callbackType.ToString());
+                string body = ReplyDictionary.UPDATED_CALLBACK_X.ReplaceStringInvariantCase("{x}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -282,7 +282,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
 
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CALLBACK_X_CLEARED, "{X}", callbackType.ToString());
+                string body = ReplyDictionary.CALLBACK_X_CLEARED.ReplaceStringInvariantCase("{X}", callbackType.ToString());
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -308,7 +308,7 @@ public class UserCallbackModule : ModuleBase<CommandContext>, ICommandModule
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
                                      .AddContent(new ChannelMessageContent()
-                                                 .SetTitle($"{ReplyDictionary.GetOutputTextForEnum(callbackType)}", EmojiDictionary.INFO)
+                                                 .SetTitle($"{callbackType.GetOutputTextForEnum()}", EmojiDictionary.INFO)
                                                  .SetDescription("Callback"))
                                      .AddContent(result.ResultValue.ActionsToMessageContent())
                                      .SetFooter(result.ResultValue.TargetChannelToString());

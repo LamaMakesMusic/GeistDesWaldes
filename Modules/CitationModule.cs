@@ -74,7 +74,7 @@ public class CitationModule : ModuleBase<CommandContext>, ICommandModule
     {
         try
         {
-            CustomRuntimeResult<Citation> result = await Server.GetModule<CitationsHandler>().GetQuote(quoteId);
+            CustomRuntimeResult<Citation> result = Server.GetModule<CitationsHandler>().GetQuote(quoteId);
 
             if (result.IsSuccess && result.ResultValue is { } quote)
             {
@@ -232,7 +232,7 @@ public class CitationModule : ModuleBase<CommandContext>, ICommandModule
                     newContent = $"{newContent.Substring(0, 245)} [...]";
                 }
 
-                CustomRuntimeResult<Citation> result = await Server.GetModule<CitationsHandler>().GetQuote(quoteId);
+                CustomRuntimeResult<Citation> result = Server.GetModule<CitationsHandler>().GetQuote(quoteId);
 
                 if (result.IsSuccess)
                 {

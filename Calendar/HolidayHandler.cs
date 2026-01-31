@@ -206,7 +206,7 @@ public class HolidayHandler : BaseHandler
 
     private async Task InvokeHolidayBehaviour(string holidayName, HolidayBehaviour.BehaviourAction actionType)
     {
-        CustomRuntimeResult<HolidayBehaviour> result = await GetHolidayBehaviour(holidayName);
+        CustomRuntimeResult<HolidayBehaviour> result = GetHolidayBehaviour(holidayName);
 
         if (result.IsSuccess)
         {
@@ -277,34 +277,32 @@ public class HolidayHandler : BaseHandler
         });
     }
 
-    public async Task<CustomRuntimeResult<HolidayBehaviour>> GetHolidayBehaviour(string holidayName)
+    public CustomRuntimeResult<HolidayBehaviour> GetHolidayBehaviour(string holidayName)
     {
         int nameHash = holidayName.ToLower().GetHashCode();
 
         HolidayBehaviour result = _behaviourDictionary.Behaviours.Find(b => b.HolidayNameHash == nameHash);
 
-        if (result == default)
+        if (result == null)
         {
             IDictionary<DateTime, string> allHolidays = GermanHolidays.PublicHolidayNames(DateTime.Now.Year);
             KeyValuePair<DateTime, string> holidayDate = allHolidays.FirstOrDefault(h => h.Value.Equals(holidayName, StringComparison.OrdinalIgnoreCase));
 
-            if (holidayDate.Key != default && holidayDate.Value != default)
+            if (holidayDate.Key != default && holidayDate.Value != null)
             {
                 result = new HolidayBehaviour(Server, holidayDate.Value, holidayDate.Key);
             }
         }
 
-        if (result != default)
-        {
+        if (result != null)
             return CustomRuntimeResult<HolidayBehaviour>.FromSuccess(value: result);
-        }
 
-        return CustomRuntimeResult<HolidayBehaviour>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X, "{x}", holidayName));
+        return CustomRuntimeResult<HolidayBehaviour>.FromError(ReplyDictionary.COULD_NOT_FIND_HOLIDAY_NAMED_X.ReplaceStringInvariantCase("{x}", holidayName));
     }
 
-    public async Task<CustomRuntimeResult> SetHolidayBehaviour(string holidayName, CustomCommand callback, HolidayBehaviour.BehaviourAction actionType)
+    public CustomRuntimeResult SetHolidayBehaviour(string holidayName, CustomCommand callback, HolidayBehaviour.BehaviourAction actionType)
     {
-        CustomRuntimeResult<HolidayBehaviour> result = await GetHolidayBehaviour(holidayName);
+        CustomRuntimeResult<HolidayBehaviour> result = GetHolidayBehaviour(holidayName);
 
         if (result.IsSuccess)
         {
@@ -340,9 +338,9 @@ public class HolidayHandler : BaseHandler
         return result;
     }
 
-    public async Task<CustomRuntimeResult> RemoveHolidayBehaviour(string holidayName)
+    public CustomRuntimeResult RemoveHolidayBehaviour(string holidayName)
     {
-        CustomRuntimeResult<HolidayBehaviour> result = await GetHolidayBehaviour(holidayName);
+        CustomRuntimeResult<HolidayBehaviour> result = GetHolidayBehaviour(holidayName);
 
         if (result.IsSuccess)
         {

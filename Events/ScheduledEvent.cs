@@ -201,7 +201,7 @@ public class ScheduledEvent
                              .SetTemplate(template)
                              .AddContent(
                                  new ChannelMessageContent()
-                                     .SetTitle($"{CommandToExecute?.Name} ({ReplyDictionary.GetOutputTextForEnum(Repetition)})")
+                                     .SetTitle($"{CommandToExecute?.Name} ({Repetition.GetOutputTextForEnum()})")
                                      .SetDescription(ExecutionTime.ToString(culture))
                              ).AddContent(
                                  new ChannelMessageContent()

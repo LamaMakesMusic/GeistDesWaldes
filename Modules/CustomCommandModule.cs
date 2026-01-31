@@ -71,7 +71,7 @@ public class CustomCommandModule : ModuleBase<CommandContext>, ICommandModule
                 CustomRuntimeResult addResult = await Server.GetModule<CustomCommandHandler>().AddCommandAsync(newCommand);
                 if (addResult.IsSuccess)
                 {
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COMMAND_X_CREATED, "{x}", commandName);
+                    string body = ReplyDictionary.COMMAND_X_CREATED.ReplaceStringInvariantCase("{x}", commandName);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -98,7 +98,7 @@ public class CustomCommandModule : ModuleBase<CommandContext>, ICommandModule
 
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COMMAND_X_REMOVED, "{x}", commandName);
+                string body = ReplyDictionary.COMMAND_X_REMOVED.ReplaceStringInvariantCase("{x}", commandName);
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -220,7 +220,7 @@ public class CustomCommandModule : ModuleBase<CommandContext>, ICommandModule
                     await Server.GetModule<CustomCommandHandler>().UpdateCommandService();
                     await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
-                    string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.COMMAND_X_EDITED, "{x}", commandName);
+                    string body = ReplyDictionary.COMMAND_X_EDITED.ReplaceStringInvariantCase("{x}", commandName);
 
                     ChannelMessage msg = new ChannelMessage(Context)
                                          .SetTemplate(ChannelMessage.MessageTemplateOption.Modified)
@@ -337,7 +337,7 @@ public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandM
 
                 result.ResultValue.PriceTag = fee;
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_CREATED, "{x}", categoryName);
+                string body = ReplyDictionary.CATEGORY_X_CREATED.ReplaceStringInvariantCase("{x}", categoryName);
 
                 ChannelMessage msg = new ChannelMessage(Context)
                                      .SetTemplate(ChannelMessage.MessageTemplateOption.Positive)
@@ -372,7 +372,7 @@ public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandM
                 await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_EDITED, "{x}", categoryName);
+                string body = ReplyDictionary.CATEGORY_X_EDITED.ReplaceStringInvariantCase("{x}", categoryName);
                 body = $"{body} | Cooldown: {result.ResultValue.CategoryCooldownInSeconds} => {cooldown}";
 
 
@@ -398,7 +398,7 @@ public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandM
 
             if (result.IsSuccess)
             {
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_EDITED, "{x}", categoryName);
+                string body = ReplyDictionary.CATEGORY_X_EDITED.ReplaceStringInvariantCase("{x}", categoryName);
                 body = $"{body} | Fee: {result.ResultValue.PriceTag} => {fee}";
 
 
@@ -434,7 +434,7 @@ public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandM
                 await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_EDITED, "{x}", categoryName);
+                string body = ReplyDictionary.CATEGORY_X_EDITED.ReplaceStringInvariantCase("{x}", categoryName);
                 body = $"{body} | Locked: {result.ResultValue.Locked} => {categoryLocked}";
 
 
@@ -465,7 +465,7 @@ public class CustomCommandCategoryModule : ModuleBase<CommandContext>, ICommandM
                 await Server.GetModule<CustomCommandHandler>().SaveCustomCommandsToFile();
 
 
-                string body = await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.CATEGORY_X_REMOVED, "{x}", categoryName);
+                string body = ReplyDictionary.CATEGORY_X_REMOVED.ReplaceStringInvariantCase("{x}", categoryName);
 
 
                 ChannelMessage msg = new ChannelMessage(Context)

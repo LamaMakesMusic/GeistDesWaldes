@@ -154,8 +154,7 @@ public class FreeForAllModule : ModuleBase<CommandContext>, ICommandModule
             TimeObject time = await RequireTimeJoined.GetTimeJoinedAsync(user, Server.LogHandler);
 
             StringBuilder timeBuilder = new();
-            string body = await ReplyDictionary.ReplaceStringInvariantCase(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.X_HAS_BEEN_PART_OF_Y_FOR_Z_TIME, "{x}", $"_{user.Username}_"), "{y}", $"_{Context.Guild.Name}_");
-
+            
             if (time.Years > 0)
             {
                 timeBuilder.Append($" `{time.Years} {(time.Years == 1 ? ReplyDictionary.YEAR : ReplyDictionary.YEARS)}` ");
@@ -186,8 +185,10 @@ public class FreeForAllModule : ModuleBase<CommandContext>, ICommandModule
                 timeBuilder.Append($" `{time.Seconds} {(time.Seconds == 1 ? ReplyDictionary.SECOND : ReplyDictionary.SECONDS)}` ");
             }
 
-            body = await ReplyDictionary.ReplaceStringInvariantCase(body, "{z}", timeBuilder.ToString());
-
+            string body = ReplyDictionary.X_HAS_BEEN_PART_OF_Y_FOR_Z_TIME
+                                         .ReplaceStringInvariantCase("{x}", $"_{user.Username}_")
+                                         .ReplaceStringInvariantCase("{y}", $"_{Context.Guild.Name}_")
+                                         .ReplaceStringInvariantCase("{z}", timeBuilder.ToString());
 
             ChannelMessage msg = new ChannelMessage(Context)
                                  .SetTemplate(ChannelMessage.MessageTemplateOption.Information)

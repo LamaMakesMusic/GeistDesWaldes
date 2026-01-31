@@ -15,7 +15,7 @@ public class CitationsHandler : BaseHandler
     public override int Priority => -12;
     
     private const string CITATIONS_FILE_NAME = "Quotes";
-    private List<Citation> Quotes = new();
+    private List<Citation> _quotes = new();
 
 
     public CitationsHandler(Server server) : base(server)
@@ -25,7 +25,6 @@ public class CitationsHandler : BaseHandler
     public override async Task OnServerStartUp()
     {
         await base.OnServerStartUp();
-        ;
         await InitializeCitationsHandler();
     }
 
@@ -38,7 +37,7 @@ public class CitationsHandler : BaseHandler
 
     private async Task InitializeCitationsHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, Quotes);
+        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, _quotes);
 
         await LoadQuotesFromFile();
     }
@@ -48,9 +47,9 @@ public class CitationsHandler : BaseHandler
         bool cleanupIDs = false;
         List<(int idx, string error)> problematicEntries = [];
 
-        for (int i = 0; i < Quotes.Count; i++)
+        for (int i = 0; i < _quotes.Count; i++)
         {
-            if (Quotes[i] == null)
+            if (_quotes[i] == null)
             {
                 problematicEntries.Add((i, "NULL"));
             }
@@ -58,20 +57,20 @@ public class CitationsHandler : BaseHandler
             {
                 (int, string) entry = default;
 
-                if (Quotes[i].ID < 0)
+                if (_quotes[i].ID < 0)
                 {
-                    entry = (i, $"ID ({Quotes[i].ID}) < 0");
+                    entry = (i, $"ID ({_quotes[i].ID}) < 0");
                 }
 
-                if (Quotes.Find(q => q.ID == Quotes[i].ID && Quotes[i] != q) is { } match)
+                if (_quotes.Find(q => q.ID == _quotes[i].ID && _quotes[i] != q) is not null)
                 {
                     if (entry == default)
                     {
-                        entry = (i, $"Duplicate IDs ({Quotes[i].ID})!");
+                        entry = (i, $"Duplicate IDs ({_quotes[i].ID})!");
                     }
                     else
                     {
-                        entry.Item2 = $"{entry.Item2} | Duplicate IDs ({Quotes[i].ID})!";
+                        entry.Item2 = $"{entry.Item2} | Duplicate IDs ({_quotes[i].ID})!";
                     }
                 }
 
@@ -113,9 +112,9 @@ public class CitationsHandler : BaseHandler
 
     public Task SaveQuotesToFile()
     {
-        Quotes.Sort((q1, q2) => { return q1.ID.CompareTo(q2.ID); });
+        _quotes.Sort((q1, q2) => { return q1.ID.CompareTo(q2.ID); });
 
-        return GenericXmlSerializer.SaveAsync<List<Citation>>(Server.LogHandler, Quotes, CITATIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
+        return GenericXmlSerializer.SaveAsync<List<Citation>>(Server.LogHandler, _quotes, CITATIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
     }
 
     public async Task LoadQuotesFromFile()
@@ -128,24 +127,22 @@ public class CitationsHandler : BaseHandler
         }
         else
         {
-            Quotes = loadedQuotes;
+            _quotes = loadedQuotes;
         }
     }
 
-    private RuntimeResult ResetIDs()
+    private void ResetIDs()
     {
         try
         {
-            for (int i = 0; i < Quotes?.Count; i++)
+            for (int i = 0; i < _quotes?.Count; i++)
             {
-                Quotes[i].ID = i;
+                _quotes[i].ID = i;
             }
-
-            return CustomRuntimeResult.FromSuccess();
         }
         catch (Exception e)
         {
-            return CustomRuntimeResult.FromError(e.ToString());
+            Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(ResetIDs), string.Empty, e));
         }
     }
 
@@ -163,9 +160,9 @@ public class CitationsHandler : BaseHandler
                 quote.Author = ReplyDictionary.UNKNOWN_AUTHOR;
             }
 
-            quote.ID = GetNextID();
+            quote.ID = GetNextId();
 
-            Quotes.Add(quote);
+            _quotes.Add(quote);
 
             await SaveQuotesToFile();
 
@@ -177,24 +174,24 @@ public class CitationsHandler : BaseHandler
         }
     }
 
-    private int GetNextID()
+    private int GetNextId()
     {
-        int nextID = 0;
+        int nextId = 0;
 
-        for (int i = 0; i < Quotes?.Count; i++)
+        for (int i = 0; i < _quotes?.Count; i++)
         {
-            if (Quotes[i].ID > nextID)
+            if (_quotes[i].ID > nextId)
             {
-                nextID = Quotes[i].ID;
+                nextId = _quotes[i].ID;
             }
         }
 
-        return nextID + 1;
+        return nextId + 1;
     }
 
     public async Task<RuntimeResult> RemoveQuote(int quoteId)
     {
-        CustomRuntimeResult<Citation> result = await GetQuote(quoteId);
+        CustomRuntimeResult<Citation> result = GetQuote(quoteId);
 
         if (result.IsSuccess)
         {
@@ -208,7 +205,7 @@ public class CitationsHandler : BaseHandler
     {
         try
         {
-            Quotes.Remove(quote);
+            _quotes.Remove(quote);
 
             await SaveQuotesToFile();
 
@@ -220,16 +217,14 @@ public class CitationsHandler : BaseHandler
         }
     }
 
-    public async Task<CustomRuntimeResult<Citation>> GetQuote(int id)
+    public CustomRuntimeResult<Citation> GetQuote(int id)
     {
         try
         {
-            Citation result = Quotes.Find(q => q.ID == id);
+            Citation result = _quotes.Find(q => q.ID == id);
 
-            if (result == default)
-            {
-                return CustomRuntimeResult<Citation>.FromError(await ReplyDictionary.ReplaceStringInvariantCase(ReplyDictionary.QUOTE_WITH_ID_X_NOT_FOUND, "{x}", id.ToString()));
-            }
+            if (result == null)
+                return CustomRuntimeResult<Citation>.FromError(ReplyDictionary.QUOTE_WITH_ID_X_NOT_FOUND.ReplaceStringInvariantCase("{x}", id.ToString()));
 
             return CustomRuntimeResult<Citation>.FromSuccess(value: result);
         }
@@ -243,7 +238,7 @@ public class CitationsHandler : BaseHandler
     {
         try
         {
-            return CustomRuntimeResult<Citation[]>.FromSuccess(value: Quotes.ToArray());
+            return CustomRuntimeResult<Citation[]>.FromSuccess(value: _quotes.ToArray());
         }
         catch (Exception e)
         {
@@ -264,7 +259,7 @@ public class CitationsHandler : BaseHandler
             // Filter by Date
             if (useDate)
             {
-                filtered = Quotes.FindAll(q => q.Date.Year == date.Value.Year
+                filtered = _quotes.FindAll(q => q.Date.Year == date.Value.Year
                                                && q.Date.Month == date.Value.Month
                                                && q.Date.Day == date.Value.Day);
             }
@@ -272,7 +267,7 @@ public class CitationsHandler : BaseHandler
             // Filter by Author
             if (useAuthor)
             {
-                filtered = (useDate ? filtered : Quotes).FindAll(q => q.Author.Equals(author, StringComparison.OrdinalIgnoreCase));
+                filtered = (useDate ? filtered : _quotes).FindAll(q => q.Author.Equals(author, StringComparison.OrdinalIgnoreCase));
             }
 
             // Filter by Content
@@ -280,17 +275,17 @@ public class CitationsHandler : BaseHandler
             {
                 string[] keywords = content.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-                for (int i = 0; i < keywords?.Length; i++)
+                for (int i = 0; i < keywords.Length; i++)
                 {
                     keywords[i] = keywords[i].Trim();
                 }
 
 
-                if (keywords?.Length > 0)
+                if (keywords.Length > 0)
                 {
                     if (!useDate && !useAuthor)
                     {
-                        filtered = new List<Citation>(Quotes);
+                        filtered = new List<Citation>(_quotes);
                     }
 
                     for (int i = filtered.Count - 1; i >= 0; i--)
