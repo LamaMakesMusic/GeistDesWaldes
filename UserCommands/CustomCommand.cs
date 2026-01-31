@@ -141,13 +141,14 @@ public class CustomCommand
 
         string[] commandLines = ConvertToCommandLines(CommandsToExecute, additionalParameters);
 
-        if (commandLines == null || commandLines.Length == 0 || !GetChannelContext(context, out IMessageChannel channelContext))
-        {
+        if (commandLines == null || commandLines.Length == 0)
             return;
-        }
 
+        if (await GetChannelContext(context) is not { } channelContext)
+            return;
+        
         IDisposable typeState = null;
-        if (!(context?.Message is MetaCommandMessage))
+        if (context?.Message is not MetaCommandMessage)
         {
             typeState = channelContext.EnterTypingState();
         }
@@ -205,7 +206,7 @@ public class CustomCommand
 
                 ChannelMessageContent titleMessage = messageBundle.FirstOrDefault(m => m != null)?.Contents.FirstOrDefault(c => c.Title.text != null);
 
-                if (titleMessage == default)
+                if (titleMessage == null)
                 {
                     msg.AddContent(new ChannelMessageContent().SetTitle($"[ !{Name} ]"));
                 }
@@ -232,13 +233,13 @@ public class CustomCommand
         }
     }
 
-    private bool GetChannelContext(ICommandContext context, out IMessageChannel channelContext)
+    private async Task<IMessageChannel> GetChannelContext(ICommandContext context)
     {
-        channelContext = null;
+        IMessageChannel channelContext = null;
 
-        if (TextChannelContextId != default)
+        if (TextChannelContextId != 0)
         {
-            channelContext = Task.Run(() => Launcher.Instance.GetChannel<IMessageChannel>(TextChannelContextId)).GetAwaiter().GetResult();
+            channelContext = await Launcher.Instance.GetChannel<IMessageChannel>(TextChannelContextId);
         }
 
         if (channelContext == null)
@@ -248,20 +249,20 @@ public class CustomCommand
 
         if (channelContext == null)
         {
-            channelContext = Task.Run(() => Launcher.Instance.GetChannel<IMessageChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel)).GetAwaiter().GetResult();
+            channelContext = await Launcher.Instance.GetChannel<IMessageChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
         }
 
         if (channelContext == null)
         {
-            Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannelContext), $"Could not get {nameof(IMessageChannel)} from {nameof(TextChannelContextId)} '{TextChannelContextId}' nor {nameof(ICommandContext)}!"));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannelContext), $"Could not get {nameof(IMessageChannel)} from {nameof(TextChannelContextId)} '{TextChannelContextId}' nor {nameof(ICommandContext)}!"));
         }
 
-        return channelContext != null;
+        return channelContext;
     }
 
     private string[] ConvertToCommandLines(CommandMetaInfo[] commandsToExecute, string[] additionalParameters = null)
     {
-        string[] converted = new string[commandsToExecute != null ? commandsToExecute.Length : 0];
+        string[] converted = new string[commandsToExecute?.Length ?? 0];
 
         for (int i = 0; i < converted.Length; i++)
         {

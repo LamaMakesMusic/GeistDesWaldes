@@ -321,7 +321,7 @@ public class Program
         catch (Exception e)
         {
             await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannel), "", e));
-            return default;
+            return null;
         }
     }
 
@@ -424,19 +424,15 @@ public class Program
         KeyValuePair<ulong, ServerConfiguration> configPair = ConfigurationHandler.Configs.FirstOrDefault(c => c.Value.TwitchSettings.TwitchMessageChannelId == channelId);
 
         if (configPair.Value == null)
-        {
             return null;
-        }
 
         string channelName = configPair.Value.TwitchSettings.TwitchChannelName;
         JoinedChannel channel = TwitchIntegrationHandler.Instance.GetChannelObject(channelName);
 
-        if (channel != null)
-        {
-            return new TwitchMessageChannel(configPair.Key, configPair.Value.TwitchSettings.TwitchMessageChannelId, channel.Channel);
-        }
-
-        return null;
+        if (channel == null)
+            return null;
+        
+        return new TwitchMessageChannel(configPair.Key, configPair.Value.TwitchSettings.TwitchMessageChannelId, channel.Channel);
     }
 
     private async Task SaveLogFileLoop()

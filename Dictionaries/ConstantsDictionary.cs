@@ -23,14 +23,14 @@ public static class ConstantsDictionary
 
     private static bool TryInjectTime(ref string input, CultureInfo culture)
     {
-        int startIdx = input.IndexOf(TIME_TAG_OPEN);
+        int startIdx = input.IndexOf(TIME_TAG_OPEN, StringComparison.Ordinal);
 
         if (startIdx == -1)
         {
             return false;
         }
 
-        int endIdx = input.IndexOf(TIME_TAG_CLOSE, startIdx);
+        int endIdx = input.IndexOf(TIME_TAG_CLOSE, startIdx,  StringComparison.Ordinal);
 
         if (endIdx == -1)
         {

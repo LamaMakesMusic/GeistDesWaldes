@@ -287,7 +287,7 @@ public class TwitchIntegrationClient
             TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(ConnectionVerificationLoop)}", "Stopped.", LogSeverity.Warning);
         }
     }
-
+    
 
     private void ClientLog(object sender, OnLogArgs e)
     {
@@ -316,13 +316,10 @@ public class TwitchIntegrationClient
         _connectionStatus.EventSubConnected = true;
         TwitchIntegrationHandler.LogToMain($"[{ChannelName}] {nameof(OnWebsocketConnected)}", $"Websocket '{_eventSubWebsocketClient.SessionId}' connected!");
 
-        if (e.IsRequestedReconnect)
-        {
-            return;
-        }
+        if (!e.IsRequestedReconnect) 
+            await CreateEventSubscriptionsAsync(); // Create and send EventSubscription
 
-        // Create and send EventSubscription
-        await CreateEventSubscriptionsAsync();
+        await CatchUpOnlineState();
     }
 
     private async Task CreateEventSubscriptionsAsync()
@@ -354,6 +351,19 @@ public class TwitchIntegrationClient
 
         // If you want to get Events for special Events you need to additionally add the AccessToken of the ChannelOwner to the request.
         // https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/
+    }
+    
+    private async Task CatchUpOnlineState()
+    {
+        if (StreamInfo.IsOnline)
+            return;
+
+        if (await TwitchIntegrationHandler.GetStream(ChannelId, ChannelName) is not { } stream)
+            return;
+        
+        StreamInfo.Update(stream);
+        StreamInfo.SetOnline(stream.StartedAt);
+        await NotifyStreamOnline();
     }
 
 
@@ -578,7 +588,7 @@ public class TwitchIntegrationClient
 
         StreamInfo.Title = title;
         StreamInfo.Category = category;
-
+        
         EnsureLiveStreamUpdateLoop();
 
         await NotifyStreamUpdate();
@@ -608,9 +618,7 @@ public class TwitchIntegrationClient
     private async Task EventSub_OnStreamOnline(object sender, StreamOnlineArgs e)
     {
         if (StreamInfo.IsOnline)
-        {
             return;
-        }
 
         StreamOnline evt = e?.Payload?.Event;
         DateTimeOffset startedAt = evt?.StartedAt ?? DateTimeOffset.Now;
@@ -784,13 +792,11 @@ public class TwitchIntegrationClient
     public void StartListening(Server server)
     {
         if (_configStreamEntities.ContainsKey(server.Config))
-        {
             return;
-        }
 
         _configStreamEntities.Add(server.Config, new ConfigStreamEntity(server, server.Config));
     }
-
+    
     public void StopListening(ServerConfiguration config)
     {
         _configStreamEntities.Remove(config);

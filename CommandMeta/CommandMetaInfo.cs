@@ -151,7 +151,7 @@ public class CommandMetaInfo
         {
             string parameter = RuntimeParameters[j].Value?.ToString();
 
-            if (additionalParameters != null)
+            if (parameter != null && additionalParameters != null)
             {
                 for (int k = 0; k < additionalParameters.Length; k++)
                 {
