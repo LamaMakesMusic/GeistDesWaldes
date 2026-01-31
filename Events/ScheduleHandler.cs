@@ -15,6 +15,8 @@ namespace GeistDesWaldes.Events;
 
 public class ScheduleHandler : BaseHandler
 {
+    public override int Priority => -6;
+    
     private const string SCHEDULE_FILE_NAME = "EventSchedule";
     private CancellationTokenSource _cancelKickOffTaskSource;
 

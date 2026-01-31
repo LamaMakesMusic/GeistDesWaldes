@@ -8,21 +8,14 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using GeistDesWaldes.Attributes;
-using GeistDesWaldes.Audio;
-using GeistDesWaldes.Calendar;
-using GeistDesWaldes.CommandMeta;
 using GeistDesWaldes.Communication;
 using GeistDesWaldes.Configuration;
-using GeistDesWaldes.Counters;
 using GeistDesWaldes.Currency;
-using GeistDesWaldes.Decoration;
 using GeistDesWaldes.Dictionaries;
-using GeistDesWaldes.Events;
 using GeistDesWaldes.Misc;
 using GeistDesWaldes.Polls;
 using GeistDesWaldes.Statistics;
 using GeistDesWaldes.TwitchIntegration;
-using GeistDesWaldes.TwitchIntegration.IntervalActions;
 using GeistDesWaldes.UserCommands;
 using GeistDesWaldes.Users;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,60 +27,66 @@ namespace GeistDesWaldes;
 
 public class Server
 {
-    private readonly Dictionary<Type, IServerModule> _moduleQuickAccess = new();
-    private readonly List<IServerModule> _modules = [];
+    public SocketGuild Guild => Launcher.Instance.DiscordClient.GetGuild(GuildId);
+    public readonly ulong GuildId;
+
+    public ServerConfiguration Config => ConfigurationHandler.Configs[GuildId];
+    public RuntimeConfiguration RuntimeConfig => ConfigurationHandler.RuntimeConfig[GuildId];
+
+    public CultureInfo CultureInfo => ConfigurationHandler.RuntimeConfig[GuildId].CultureInfo;
+    
     public readonly CommandService CommandService;
 
-
-    public readonly DiscordSocketClient DiscordClient;
-    public readonly ulong GuildId;
     public readonly LogHandler LogHandler;
+    private readonly DiscordSocketClient _discordClient;
 
     public readonly string ServerFilesDirectoryPath;
+
+    public readonly IServiceProvider Services;
+    private readonly List<IServerModule> _modules = [];
+    private readonly Dictionary<Type, IServerModule> _moduleQuickAccess = new();
 
 
     public Server(ulong guildId, DiscordSocketClient client)
     {
         GuildId = guildId;
-        DiscordClient = client;
+        _discordClient = client;
         ServerFilesDirectoryPath = Path.GetFullPath(Path.Combine(ConfigurationHandler.ServerFilesDirectory, GuildId.ToString()));
 
         LogHandler = new LogHandler(this);
 
-        Services = new ServiceCollection()
-                   .AddSingleton(this)
-                   .AddSingleton(LogHandler)
-                   .AddSingleton<ILogger<EventSubWebsocketClient>>(LogHandler)
-                   .AddTwitchLibEventSubWebsockets()
-                   .AddSingleton<ForestUserHandler>()
-                   .AddSingleton<CustomCommandHandler>()
-                   .AddSingleton<CommandCooldownHandler>()
-                   .AddSingleton<FlickrHandler>()
-                   .AddSingleton<UserCooldownHandler>()
-                   .AddSingleton<WebCalSyncHandler>()
-                   .AddSingleton<CounterHandler>()
-                   .AddSingleton<AudioHandler>()
-                   .AddSingleton<CounterHandler>()
-                   .AddSingleton<CurrencyHandler>()
-                   .AddSingleton<BirthdayHandler>()
-                   .AddSingleton<HolidayHandler>()
-                   .AddSingleton<LayoutTemplateHandler>()
-                   .AddSingleton<PollHandler>()
-                   .AddSingleton<ScheduleHandler>()
-                   .AddSingleton<UserCallbackHandler>()
-                   .AddSingleton<TwitchLivestreamIntervalActionHandler>()
-                   .AddSingleton<CommandInfoHandler>()
-                   .AddSingleton<CommandStatisticsHandler>()
-                   .BuildServiceProvider();
-
-        _modules.AddRange(Services.GetServices<IServerModule>());
-        _modules.Sort((m1, m2) => m1.Priority.CompareTo(m2));
-
-        foreach (IServerModule m in _modules)
+        // Create Services
+        IServiceCollection serviceCollection = new ServiceCollection()
+                                               .AddSingleton(this)
+                                               .AddSingleton(LogHandler)
+                                               .AddSingleton<ILogger<EventSubWebsocketClient>>(LogHandler)
+                                               .AddTwitchLibEventSubWebsockets();
+        
+        // Add all BaseHandlers
+        foreach (Type t in Launcher.Instance.ReflectedBaseHandlerTypes)
         {
-            _moduleQuickAccess.Add(m.GetType(), m);
+            serviceCollection.AddSingleton(t);
         }
+        
+        // Build Services
+        Services = serviceCollection.BuildServiceProvider();
 
+        // Prepare Services Cache
+        foreach (Type t in Launcher.Instance.ReflectedBaseHandlerTypes)
+        {
+            if (Services.GetService(t) is not BaseHandler handler)
+                continue;
+            
+            LogHandler.Log(new LogMessage(LogSeverity.Debug, nameof(Server),  $"Registering Handler: {t.Name}"));
+
+            _modules.Add(handler);
+            _moduleQuickAccess.Add(t, handler);
+        }
+        
+        _modules.Sort((m1, m2) => m1.Priority.CompareTo(m2.Priority));
+        LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(Server), $"Registered {_modules.Count} handlers"));
+        
+        // Configs
         ConfigurationHandler.EnsureServerConfig(GuildId);
 
         // Command Service
@@ -116,16 +115,7 @@ public class Server
         CommandService.AddTypeReader<IndexValuePair>(new IndexValuePairReader());
         CommandService.AddTypeReader<IndexValuePair[]>(new IndexValuePairArrayReader());
     }
-
-    public SocketGuild Guild => Launcher.Instance.DiscordClient.GetGuild(GuildId);
-
-    public ServerConfiguration Config => ConfigurationHandler.Configs[GuildId];
-    public RuntimeConfiguration RuntimeConfig => ConfigurationHandler.RuntimeConfig[GuildId];
-
-    public CultureInfo CultureInfo => ConfigurationHandler.RuntimeConfig[GuildId].CultureInfo;
-
-    public IServiceProvider Services { get; }
-
+    
 
     public async Task Start()
     {
@@ -236,7 +226,7 @@ public class Server
         int prefixPosition = 0;
 
         // Is Command
-        if (message.HasCharPrefix(Config.GeneralSettings.CommandPrefix, ref prefixPosition) || message.HasMentionPrefix(DiscordClient.CurrentUser, ref prefixPosition))
+        if (message.HasCharPrefix(Config.GeneralSettings.CommandPrefix, ref prefixPosition) || message.HasMentionPrefix(_discordClient.CurrentUser, ref prefixPosition))
         {
             await GetModule<UserCooldownHandler>().AddToCooldown(message.Author);
 
@@ -245,11 +235,11 @@ public class Server
 
             if (discordMessage != null)
             {
-                context = new CommandContext(DiscordClient, discordMessage);
+                context = new CommandContext(_discordClient, discordMessage);
             }
             else
             {
-                context = new CommandContext(DiscordClient, twitchMessage);
+                context = new CommandContext(_discordClient, twitchMessage);
             }
 
 
@@ -279,7 +269,7 @@ public class Server
         //    contextUser = 
         else
         {
-            frontUser = await contextChannel.GetUserAsync(DiscordClient.CurrentUser.Id);
+            frontUser = await contextChannel.GetUserAsync(_discordClient.CurrentUser.Id);
         }
 
 
@@ -291,7 +281,7 @@ public class Server
 
         MetaCommandMessage commandMessage = new(command, contextChannel, frontUser, bundleCallback);
 
-        await ExecuteCommand(new CommandContext(DiscordClient, commandMessage), 0);
+        await ExecuteCommand(new CommandContext(_discordClient, commandMessage), 0);
     }
 
     private async Task ExecuteCommand(CommandContext context, int prefixPosition)

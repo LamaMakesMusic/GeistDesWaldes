@@ -13,6 +13,8 @@ namespace GeistDesWaldes.Polls;
 
 public class PollHandler : BaseHandler
 {
+    public override int Priority => -7;
+    
     public enum VoteEvaluationResult
     {
         Error = -2,

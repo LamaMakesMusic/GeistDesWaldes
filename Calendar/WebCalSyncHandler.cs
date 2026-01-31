@@ -15,6 +15,8 @@ namespace GeistDesWaldes.Calendar;
 
 public class WebCalSyncHandler : BaseHandler
 {
+    public override int Priority => -15;
+    
     private CancellationTokenSource _cancelSyncLoopSource;
     private Task _syncLoopTask;
 

@@ -15,6 +15,8 @@ namespace GeistDesWaldes.Calendar;
 
 public class BirthdayHandler : BaseHandler
 {
+    public override int Priority => -10;
+    
     private const string BIRTHDAYS_FILE_NAME = "Birthdays";
 
     private readonly ForestUserHandler _forestUserHandler;

@@ -20,6 +20,8 @@ namespace GeistDesWaldes.Users;
 
 public class ForestUserHandler : BaseHandler
 {
+    public override int Priority => -20;
+
     private readonly ConcurrentDictionary<Guid, ForestUser> _users = new();
 
     private readonly string _usersDirectoryPath;

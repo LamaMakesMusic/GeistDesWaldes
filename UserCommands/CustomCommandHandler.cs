@@ -15,18 +15,20 @@ namespace GeistDesWaldes.UserCommands;
 
 public class CustomCommandHandler : BaseHandler
 {
+    public override int Priority => -19;
+    
     private const string COMMANDINFO_FILE_NAME = "CustomCommands";
-    private readonly CommandInfoHandler _commandInfoHandler;
+    
+    private CommandInfoHandler CommandInfoHandler => _commandInfoHandlerReference.Value;
+    private readonly ServiceReference<CommandInfoHandler> _commandInfoHandlerReference;
 
-    private readonly CustomCommandHandler _customCommandHandler;
     private ModuleInfo _moduleInfo;
     public CustomCommandDictionary CustomCommands = new();
 
 
-    public CustomCommandHandler(Server server, CustomCommandHandler customCommandHandler, CommandInfoHandler commandInfoHandler) : base(server)
+    public CustomCommandHandler(Server server) : base(server)
     {
-        _customCommandHandler = customCommandHandler;
-        _commandInfoHandler = commandInfoHandler;
+        _commandInfoHandlerReference = new ServiceReference<CommandInfoHandler>(server);
     }
 
     public override async Task OnServerStartUp()
@@ -142,11 +144,11 @@ public class CustomCommandHandler : BaseHandler
         {
             int hash = commandName.ToLower().GetHashCode();
 
-            for (int i = 0; i < _customCommandHandler.CustomCommands.Commands.Count; i++)
+            for (int i = 0; i < CustomCommands.Commands.Count; i++)
             {
-                if (_customCommandHandler.CustomCommands.Commands[i].NameHash == hash)
+                if (CustomCommands.Commands[i].NameHash == hash)
                 {
-                    return CustomRuntimeResult<CustomCommand>.FromSuccess(value: _customCommandHandler.CustomCommands.Commands[i]);
+                    return CustomRuntimeResult<CustomCommand>.FromSuccess(value: CustomCommands.Commands[i]);
                 }
             }
 
@@ -280,8 +282,8 @@ public class CustomCommandHandler : BaseHandler
         }
         finally
         {
-            await _commandInfoHandler.CollectCustomCommands();
-            await _commandInfoHandler.CreateHelpListStringsAsync();
+            await CommandInfoHandler.CollectCustomCommands();
+            await CommandInfoHandler.CreateHelpListStringsAsync();
         }
     }
 

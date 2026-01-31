@@ -11,6 +11,8 @@ namespace GeistDesWaldes.Statistics;
 
 public class CommandStatisticsHandler : BaseHandler
 {
+    public override int Priority => -2;
+    
     private const string COMMANDS_FILE_NAME = "Statistics_Commands";
     private readonly Dictionary<string, CommandStatistic> _runtimeDictionary = new();
 

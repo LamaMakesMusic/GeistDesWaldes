@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,15 +36,14 @@ public class Program
 
     public readonly LogHandler LogHandler = new(null);
     public readonly Dictionary<ulong, Server> Servers = new();
-
+    
     public readonly TwitchIntegrationHandler TwitchIntegrationHandler = new();
+    public readonly Type[] ReflectedBaseHandlerTypes;
+    
     private CancellationTokenSource _cancelLogLoopSource;
     private CancellationTokenSource _cancelServerWatchdogSource;
 
-
     private Task _logTask;
-
-
     private Task _serverWatchdogTask;
 
 
@@ -60,6 +60,28 @@ public class Program
         DiscordClient.MessageReceived += HandleCommandAsync;
         DiscordClient.Ready += OnClientReady;
         DiscordClient.UserJoined += OnBotJoinedGuild;
+
+        ReflectedBaseHandlerTypes = GetBaseHandlerTypes();
+    }
+
+    private static Type[] GetBaseHandlerTypes()
+    {
+        List<Type> handlerTypes = new();
+        Type baseHandlerType = typeof(BaseHandler);
+        
+        foreach (Assembly ass in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            foreach (Type t in ass.GetTypes())
+            {
+                if (t.IsAbstract || !t.IsClass || !baseHandlerType.IsAssignableFrom(t))
+                    continue;
+
+                handlerTypes.Add(t);
+            }
+        }
+
+        handlerTypes.Sort((t1,t2) => t1.Name.CompareTo(t2.Name, StringComparison.Ordinal));
+        return handlerTypes.ToArray();
     }
 
 
@@ -106,13 +128,13 @@ public class Program
         LogHandler.LogRaw("");
         LogHandler.LogRaw($"Starting Parameters: Log Level ('{Launcher.LOG_LEVEL_ID}') - {Launcher.LogLevel} | Console Only ('{Launcher.CONSOLE_OUTPUT_ONLY_ID}') - {Launcher.ConsoleOutputOnly}");
         LogHandler.LogRaw("");
-        LogHandler.LogRaw("Dependencies");
-        LogHandler.LogRaw($"{nameof(Launcher.FfmpegPath)}: {Launcher.FfmpegPath}");
-
+        LogHandler.LogRaw("- - - Dependencies - - -");
         CheckDependency("opus.so");
         CheckDependency("libopus.so");
         CheckDependency("opus");
         CheckDependency("libopus");
+
+        PrintDetectedHandlers();
     }
 
     private void CheckDependency(string filename)
@@ -120,6 +142,20 @@ public class Program
         bool result = File.Exists($"{Launcher.BaseDirectory}{filename}");
 
         LogHandler.LogRaw($"{filename}: {result}");
+    }
+
+    private void PrintDetectedHandlers()
+    {
+        LogHandler.LogRaw("");
+        LogHandler.LogRaw($"Reflected {ReflectedBaseHandlerTypes.Length} handlers.");
+
+        if (Launcher.LogLevel < 4)
+            return;
+        
+        foreach (Type t in ReflectedBaseHandlerTypes)
+        {
+            LogHandler.LogRaw(t.Name);
+        }
     }
 
 
@@ -468,8 +504,10 @@ public class Program
                 await Task.Delay(TimeSpan.FromMinutes(Math.Max(1, ConfigurationHandler.Shared.ServerWatchdogIntervalInMinutes)), _cancelServerWatchdogSource.Token);
             }
         }
-        catch (TaskCanceledException)
+        catch (Exception ex)
         {
+            if (ex is not TaskCanceledException)
+                await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(ServerWatchdogLoop), string.Empty, ex));
         }
         finally
         {

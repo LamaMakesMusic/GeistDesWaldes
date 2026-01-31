@@ -10,6 +10,8 @@ namespace GeistDesWaldes;
 
 public class CommandCooldownHandler : BaseHandler
 {
+    public override int Priority => -18;
+    
     private readonly ConcurrentDictionary<string, long> _categoriesOnCooldown;
     private readonly ConcurrentDictionary<string, long> _commandsOnCooldown; // ID - CooldownEndInTicks
 

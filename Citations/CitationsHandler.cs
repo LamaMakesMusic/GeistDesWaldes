@@ -12,6 +12,8 @@ namespace GeistDesWaldes.Citations;
 
 public class CitationsHandler : BaseHandler
 {
+    public override int Priority => -12;
+    
     private const string CITATIONS_FILE_NAME = "Quotes";
     private List<Citation> Quotes = new();
 

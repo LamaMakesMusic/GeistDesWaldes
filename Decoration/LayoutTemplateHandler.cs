@@ -11,6 +11,8 @@ namespace GeistDesWaldes.Decoration;
 
 public class LayoutTemplateHandler : BaseHandler
 {
+    public override int Priority => -8;
+    
     private const string LAYOUT_TEMPLATES_FILE_NAME = "LayoutTemplates";
     private bool _inProgress;
     public LayoutTemplateDictionary TemplateDictionary;

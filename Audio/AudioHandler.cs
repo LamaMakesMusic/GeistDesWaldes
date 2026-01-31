@@ -20,6 +20,8 @@ namespace GeistDesWaldes.Audio;
 
 public class AudioHandler : BaseHandler
 {
+    public override int Priority => -13;
+    
     public const string AUDIO_DIRECTORY_NAME = "Audio Files";
     public static readonly string[] SupportedAudioFileExtensions = [".mp3", ".ogg", ".wav"];
 
@@ -441,7 +443,7 @@ public class AudioHandler : BaseHandler
 
         Process process = Process.Start(new ProcessStartInfo
         {
-            FileName = Path.Combine(Launcher.FfmpegPath, "ffmpeg"),
+            FileName = "ffmpeg",
             Arguments = $"-hide_banner -loglevel {logLevel} -i \"{path}\" -ac 2 -f s16le -ar 48000 pipe:1",
             UseShellExecute = false,
             RedirectStandardOutput = true

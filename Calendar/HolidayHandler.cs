@@ -15,6 +15,8 @@ namespace GeistDesWaldes.Calendar;
 
 public class HolidayHandler : BaseHandler
 {
+    public override int Priority => -9;
+    
     private const string HOLIDAYBEHAVIOURS_FILE_NAME = "HolidayBehaviours";
 
     private static GermanPublicHoliday _germanHolidays;

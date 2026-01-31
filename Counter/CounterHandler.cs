@@ -12,6 +12,8 @@ namespace GeistDesWaldes.Counters;
 
 public class CounterHandler : BaseHandler
 {
+    public override int Priority => -14;
+    
     private const string COUNTER_FILE_NAME = "Counter";
     private ModuleInfo _moduleInfo;
     public List<Counter> Counters;

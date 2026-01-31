@@ -16,6 +16,8 @@ namespace GeistDesWaldes.TwitchIntegration.IntervalActions;
 
 public class TwitchLivestreamIntervalActionHandler : BaseHandler
 {
+    public override int Priority => -4;
+    
     private const string ACTIONS_FILE_NAME = "TwitchLivestreamIntervalActions";
 
     private readonly CommandInfoHandler _infoHandler;

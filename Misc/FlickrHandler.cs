@@ -9,6 +9,8 @@ namespace GeistDesWaldes.Misc;
 
 public class FlickrHandler : BaseHandler
 {
+    public override int Priority => -17;
+    
     public const string PIC_SOURCE_MAIN = @"https://ww.flickr.com";
     public const string PIC_SOURCE_ICON = @"https://combo.staticflickr.com/pw/images/favicons/favicon-32.png";
 

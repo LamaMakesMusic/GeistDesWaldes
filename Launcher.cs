@@ -22,7 +22,6 @@ public static class Launcher
     public static string ExecutingAssemblyName { get; private set; }
     public static string ApplicationFilesPath { get; private set; }
     public static string CommonFilesPath { get; private set; }
-    public static string FfmpegPath { get; private set; }
 
 
     public static async Task Main(string[] args)
@@ -35,8 +34,6 @@ public static class Launcher
 
         CommonFilesPath = Path.GetFullPath(Path.Combine(ApplicationFilesPath, "Common"));
         await GenericXmlSerializer.EnsurePathExistance<object>(null, CommonFilesPath);
-
-        FfmpegPath = Environment.GetEnvironmentVariable("ffmpeg", EnvironmentVariableTarget.User) ?? "";
 
         // outside of loop allows keeping changes on restart
         ApplyStartArguments(args);

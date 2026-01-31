@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -18,11 +19,14 @@ namespace GeistDesWaldes.CommandMeta;
 
 public class CommandInfoHandler : BaseHandler
 {
+    public override int Priority => -3;
+    
     private const string FACTORY_COMMAND_MANUAL_FILE_NAME = "commandsBuiltIn.md";
     private const string CUSTOM_COMMAND_MANUAL_FILE_NAME = "commandsCustom.md";
     public const string COMMAND_ALIAS_DIVIDER = "::";
 
-    private readonly CustomCommandHandler _customCommandHandler;
+    private CustomCommandHandler CustomCommandHandler => _customCommandHandlerReference.Value;
+    private readonly ServiceReference<CustomCommandHandler> _customCommandHandlerReference;
     private readonly List<CommandMetaInfo> _customCommands = [];
     private readonly List<CommandMetaInfo> _factoryCommands = [];
 
@@ -31,9 +35,9 @@ public class CommandInfoHandler : BaseHandler
     public ChannelMessage FactoryCommandHelpMessage;
 
 
-    public CommandInfoHandler(Server server, CustomCommandHandler commandHandler) : base(server)
+    public CommandInfoHandler(Server server) : base(server)
     {
-        _customCommandHandler = commandHandler;
+        _customCommandHandlerReference = new ServiceReference<CustomCommandHandler>(server);
     }
 
     public override async Task OnServerStartUp()
@@ -249,10 +253,9 @@ public class CommandInfoHandler : BaseHandler
 
             _factoryCommands.AddRange(classCommands);
         }
-
-
+        
         //Sort By Name
-        _factoryCommands.Sort((c1, c2) => c1.FullName.CompareTo(c2.FullName));
+        _factoryCommands.Sort((c1, c2) => string.Compare(c1.FullName, c2.FullName, Server.CultureInfo, CompareOptions.Ordinal));
         return Task.CompletedTask;
     }
 
@@ -261,7 +264,7 @@ public class CommandInfoHandler : BaseHandler
     {
         string attrDescription = precondition.ToString();
 
-        if (precondition is RequireBotPermissionAttribute rbpa)
+        if (precondition is RequireBotPermissionAttribute)
         {
             attrDescription = "Bot Permission";
         }
@@ -269,11 +272,11 @@ public class CommandInfoHandler : BaseHandler
         {
             attrDescription = $"Context: {rca.Contexts}";
         }
-        else if (precondition is RequireNsfwAttribute nsfwa)
+        else if (precondition is RequireNsfwAttribute)
         {
             attrDescription = "NSFW Channel";
         }
-        else if (precondition is RequireOwnerAttribute roa)
+        else if (precondition is RequireOwnerAttribute)
         {
             attrDescription = "Owner Role";
         }
@@ -285,19 +288,15 @@ public class CommandInfoHandler : BaseHandler
         {
             attrDescription = $"Time Joined: '{rtj.TimeJoined}'";
         }
-        else if (precondition is RequireUserPermissionAttribute upa)
-        {
-            attrDescription = $"Permission: '{upa.ChannelPermission.Value}'";
-        }
         else if (precondition is RequireTwitchBadge rtb)
         {
             attrDescription = $"Twitch Badge: '{rtb.RequiredBadges}'";
         }
-        else if (precondition is RequireIsBot isBot)
+        else if (precondition is RequireIsBot)
         {
             attrDescription = "Bot";
         }
-        else if (precondition is RequireIsFollower isFollower)
+        else if (precondition is RequireIsFollower)
         {
             attrDescription = "Twitch Follower";
         }
@@ -309,7 +308,7 @@ public class CommandInfoHandler : BaseHandler
     {
         _customCommands.Clear();
 
-        foreach (CustomCommand cmd in _customCommandHandler.CustomCommands.Commands)
+        foreach (CustomCommand cmd in CustomCommandHandler.CustomCommands.Commands)
         {
             _customCommands.Add(new CommandMetaInfo { Name = cmd.Name, IsCustomCommand = true });
         }
@@ -460,7 +459,7 @@ public class CommandInfoHandler : BaseHandler
                 {
                     if (command.IsCustomCommand)
                     {
-                        if ((await _customCommandHandler.GetCommandAsync(command.Name)).ResultValue is { } customCommand)
+                        if ((await CustomCommandHandler.GetCommandAsync(command.Name)).ResultValue is { } customCommand)
                         {
                             bodyBuilder.Append($" | {customCommand.CostsToString()}");
 
@@ -832,7 +831,7 @@ public class CommandInfoHandler : BaseHandler
 
         for (int i = 0; i < _customCommands.Count; i++)
         {
-            if (!((await _customCommandHandler.GetCommandAsync(_customCommands[i].Name)).ResultValue is { } cuco))
+            if (!((await CustomCommandHandler.GetCommandAsync(_customCommands[i].Name)).ResultValue is { } cuco))
             {
                 continue;
             }
@@ -907,7 +906,7 @@ public class CommandInfoHandler : BaseHandler
                         {
                             object parsed = Enum.Parse(parameter.ParameterType, names[i]);
 
-                            summaryBuilder.Append($"{names[i]}{(parsed != null ? $"={(int)parsed}" : "")}");
+                            summaryBuilder.Append($"{names[i]}{($"={(int)parsed}")}");
 
                             if (i < names.Length - 1)
                             {
@@ -944,7 +943,7 @@ public class CommandInfoHandler : BaseHandler
 
         for (int i = 0; i < _customCommands.Count; i++)
         {
-            CustomRuntimeResult<CustomCommand> getCommandResult = await _customCommandHandler.GetCommandAsync(_customCommands[i].Name);
+            CustomRuntimeResult<CustomCommand> getCommandResult = await CustomCommandHandler.GetCommandAsync(_customCommands[i].Name);
 
             if (getCommandResult.IsSuccess && getCommandResult.ResultValue is { } customCommand)
             {

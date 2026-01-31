@@ -9,6 +9,8 @@ namespace GeistDesWaldes;
 
 public class UserCooldownHandler : BaseHandler
 {
+    public override int Priority => -16;
+    
     private readonly ConcurrentDictionary<ulong, long> _discordCooldown = new();
     private readonly List<ulong> _toRemoveDiscord = new();
 

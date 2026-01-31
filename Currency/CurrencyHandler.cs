@@ -10,6 +10,8 @@ namespace GeistDesWaldes.Currency;
 
 public class CurrencyHandler : BaseHandler
 {
+    public override int Priority => -11;
+    
     private const string CUSTOMIZATIONDATA_FILE_NAME = "CurrencyCustomization";
 
     private readonly ForestUserHandler _userHandler;

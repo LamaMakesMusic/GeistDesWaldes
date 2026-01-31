@@ -11,6 +11,8 @@ namespace GeistDesWaldes.UserCommands;
 
 public class UserCallbackHandler : BaseHandler
 {
+    public override int Priority => -5;
+    
     private const string USERCALLBACKS_FILE_NAME = "UserCallbacks";
     public UserCallbackDictionary UserCallbacks;
 
