@@ -21,7 +21,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
     private const string ACTIONS_FILE_NAME = "TwitchLivestreamIntervalActions";
 
     private readonly CommandInfoHandler _infoHandler;
-    private List<CustomCommand> _actions = new();
+    private List<CustomCommand> _actions = [];
 
 
     public TwitchLivestreamIntervalActionHandler(Server server, CommandInfoHandler infoHandler) : base(server)
@@ -43,7 +43,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
 
     private async Task Initialize()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, ACTIONS_FILE_NAME, _actions);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, ACTIONS_FILE_NAME, _actions);
 
         await LoadActionsFromFile();
     }
@@ -112,7 +112,7 @@ public class TwitchLivestreamIntervalActionHandler : BaseHandler
     {
         var loadedMessages = await GenericXmlSerializer.LoadAsync<List<CustomCommand>>(Server.LogHandler, ACTIONS_FILE_NAME, Server.ServerFilesDirectoryPath);
 
-        if (loadedMessages == default)
+        if (loadedMessages == null)
         {
             await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(LoadActionsFromFile), $"Loaded {nameof(loadedMessages)} == DEFAULT"));
         }

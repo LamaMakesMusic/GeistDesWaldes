@@ -50,7 +50,7 @@ public class PollHandler : BaseHandler
 
     private async Task InitializePollHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, POLLS_FILE_NAME, _currentPolls);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, POLLS_FILE_NAME, _currentPolls);
         await LoadPollsFromFile();
     }
 

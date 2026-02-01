@@ -171,7 +171,7 @@ public class TwitchIntegrationHandler
         try
         {
             GetStreamsResponse streamResponse = await ValidatedApiCall(Instance.Api.Helix.Streams.GetStreamsAsync(first: 1, userIds: [channelId]));
-            return streamResponse.Streams[0];
+            return streamResponse.Streams?.Length > 0 ? streamResponse.Streams[0] : null;
         }
         catch (Exception ex)
         {

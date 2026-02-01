@@ -45,7 +45,7 @@ public class CustomCommandHandler : BaseHandler
 
     private async Task InitializeCustomCommandHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDINFO_FILE_NAME, CustomCommands);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDINFO_FILE_NAME, CustomCommands);
         await LoadCustomCommandsFromFile();
 
         await UpdateCommandService();

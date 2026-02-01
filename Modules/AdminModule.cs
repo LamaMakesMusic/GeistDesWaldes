@@ -839,6 +839,26 @@ public class AdminModule : ModuleBase<CommandContext>, ICommandModule
 
                 return result;
             }
+
+
+            [Command("ForceExecuteRandomAction")]
+            [Summary("Executes next action.")]
+            public async Task<RuntimeResult> ForceRandomAction()
+            {
+                try
+                {
+                    Server.GetModule<TwitchLivestreamIntervalActionHandler>().GetNextAction(0, out CustomCommand command);
+
+                    if (command != null)
+                        await command.Execute(null);
+                }
+                catch (Exception ex)
+                {
+                    return CustomRuntimeResult.FromError(ex.Message);
+                }
+                
+                return CustomRuntimeResult.FromSuccess();
+            }
         }
     }
 }

@@ -55,7 +55,7 @@ public class BirthdayHandler : BaseHandler
 
     private async Task InitializeBirthdayHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, BIRTHDAYS_FILE_NAME, BirthdayDictionary);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, BIRTHDAYS_FILE_NAME, BirthdayDictionary);
 
         await LoadBirthdaysFromFile();
     }

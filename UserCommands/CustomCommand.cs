@@ -242,20 +242,12 @@ public class CustomCommand
             channelContext = await Launcher.Instance.GetChannel<IMessageChannel>(TextChannelContextId);
         }
 
-        if (channelContext == null)
-        {
-            channelContext = context?.Channel;
-        }
+        channelContext ??= context?.Channel;
+
+        channelContext ??= await Launcher.Instance.GetChannel<IMessageChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
 
         if (channelContext == null)
-        {
-            channelContext = await Launcher.Instance.GetChannel<IMessageChannel>(Server.Config.DiscordSettings.DefaultBotTextChannel);
-        }
-
-        if (channelContext == null)
-        {
             await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannelContext), $"Could not get {nameof(IMessageChannel)} from {nameof(TextChannelContextId)} '{TextChannelContextId}' nor {nameof(ICommandContext)}!"));
-        }
 
         return channelContext;
     }

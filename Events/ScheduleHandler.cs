@@ -55,7 +55,7 @@ public class ScheduleHandler : BaseHandler
 
     private async Task InitializeScheduleHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, SCHEDULE_FILE_NAME, EventSchedule);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, SCHEDULE_FILE_NAME, EventSchedule);
         await LoadScheduleFromFile();
     }
 

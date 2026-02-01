@@ -37,7 +37,7 @@ public class CitationsHandler : BaseHandler
 
     private async Task InitializeCitationsHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, _quotes);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, CITATIONS_FILE_NAME, _quotes);
 
         await LoadQuotesFromFile();
     }

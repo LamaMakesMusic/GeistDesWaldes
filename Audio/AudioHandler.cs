@@ -22,7 +22,7 @@ public class AudioHandler : BaseHandler
 {
     public override int Priority => -13;
     
-    public const string AUDIO_DIRECTORY_NAME = "Audio Files";
+    public const string AUDIO_DIRECTORY_NAME = "audio";
     public static readonly string[] SupportedAudioFileExtensions = [".mp3", ".ogg", ".wav"];
 
     private readonly ConcurrentQueue<AudioQueueEntry> _audioQueue = new();
@@ -78,7 +78,7 @@ public class AudioHandler : BaseHandler
 
     private async Task InitializeAudioHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance<object>(Server.LogHandler, AudioDirectoryPath);
+        await GenericXmlSerializer.EnsurePathExistence<object>(Server.LogHandler, AudioDirectoryPath);
     }
 
     private void StartAudioQueueProcessing()

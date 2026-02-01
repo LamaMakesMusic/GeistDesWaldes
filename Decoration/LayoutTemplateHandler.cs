@@ -39,7 +39,7 @@ public class LayoutTemplateHandler : BaseHandler
 
     private async Task InitializeLayoutTemplateHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, LAYOUT_TEMPLATES_FILE_NAME, TemplateDictionary);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, LAYOUT_TEMPLATES_FILE_NAME, TemplateDictionary);
 
         await LoadTemplatesFromFile();
     }

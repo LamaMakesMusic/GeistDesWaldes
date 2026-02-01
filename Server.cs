@@ -121,7 +121,7 @@ public class Server
     {
         try
         {
-            await GenericXmlSerializer.EnsurePathExistance(LogHandler, ServerFilesDirectoryPath, ConfigurationHandler.SERVER_CONFIG_FILE_NAME, Config);
+            await GenericXmlSerializer.EnsurePathExistence(LogHandler, ServerFilesDirectoryPath, ConfigurationHandler.SERVER_CONFIG_FILE_NAME, Config);
             await ConfigurationHandler.LoadServerConfigFromFile(GuildId);
 
             await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services);

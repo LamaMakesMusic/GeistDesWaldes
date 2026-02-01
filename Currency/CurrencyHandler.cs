@@ -31,7 +31,7 @@ public class CurrencyHandler : BaseHandler
 
     private async Task InitializeCurrencyHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, CUSTOMIZATIONDATA_FILE_NAME, CustomizationData);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, CUSTOMIZATIONDATA_FILE_NAME, CustomizationData);
         await LoadCurrencyCustomizationFromFile();
     }
 

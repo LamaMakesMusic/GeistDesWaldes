@@ -29,11 +29,11 @@ public static class Launcher
         BaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
         ExecutingAssemblyName = Assembly.GetExecutingAssembly().FullName;
 
-        ApplicationFilesPath = Path.GetFullPath(Path.Combine(BaseDirectory, "..", "GdW-Files"));
-        await GenericXmlSerializer.EnsurePathExistance<object>(null, ApplicationFilesPath);
+        ApplicationFilesPath = Path.GetFullPath(Path.Combine(BaseDirectory, "..", "data"));
+        await GenericXmlSerializer.EnsurePathExistence<object>(null, ApplicationFilesPath);
 
-        CommonFilesPath = Path.GetFullPath(Path.Combine(ApplicationFilesPath, "Common"));
-        await GenericXmlSerializer.EnsurePathExistance<object>(null, CommonFilesPath);
+        CommonFilesPath = Path.GetFullPath(Path.Combine(ApplicationFilesPath, "common"));
+        await GenericXmlSerializer.EnsurePathExistence<object>(null, CommonFilesPath);
 
         // outside of loop allows keeping changes on restart
         ApplyStartArguments(args);

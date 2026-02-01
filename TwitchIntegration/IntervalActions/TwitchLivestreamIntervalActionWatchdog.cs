@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Discord;
 using GeistDesWaldes.Configuration;
 using GeistDesWaldes.Misc;
 using GeistDesWaldes.UserCommands;
@@ -28,6 +27,9 @@ public class TwitchLivestreamIntervalActionWatchdog
 
     public void Start()
     {
+        if (_running)
+            return;
+        
         _lastMessageSentAt = DateTime.Now;
         _messageCount = 0;
         _running = true;
@@ -41,42 +43,35 @@ public class TwitchLivestreamIntervalActionWatchdog
     public void OnChatMessageReceived()
     {
         if (!_running)
-        {
             return;
-        }
-
-        _messageCount++;
-
-        TriggerAction().SafeAsync<TwitchLivestreamIntervalActionWatchdog>(_server.GuildId);
+        
+        IncreaseMessageCount().SafeAsync<TwitchLivestreamIntervalActionWatchdog>(_server.LogHandler);
     }
 
-    private async Task TriggerAction()
+    private async Task IncreaseMessageCount()
     {
-        try
+        _messageCount++;
+
+        if (_messageCount < _serverConfiguration.TwitchSettings.LivestreamActionIntervalMinMessages)
+            return;
+
+        if ((DateTime.Now - _lastMessageSentAt).TotalMinutes < _serverConfiguration.TwitchSettings.LivestreamActionIntervalMinMinutes)
+            return;
+
+        await ExecuteNextAction();
+    }
+
+    public async Task ExecuteNextAction()
+    {
+        _lastMessageSentAt = DateTime.Now;
+        _messageCount = 0;
+
+        _actionIndex = _server.GetModule<TwitchLivestreamIntervalActionHandler>().GetNextAction(_actionIndex, out CustomCommand command);
+
+        if (command != null)
         {
-            if (_messageCount < _serverConfiguration.TwitchSettings.LivestreamActionIntervalMinMessages)
-            {
-                return;
-            }
-
-            if ((DateTime.Now - _lastMessageSentAt).TotalMinutes < _serverConfiguration.TwitchSettings.LivestreamActionIntervalMinMinutes)
-            {
-                return;
-            }
-
-            _lastMessageSentAt = DateTime.Now;
-            _messageCount = 0;
-            _actionIndex = _server.GetModule<TwitchLivestreamIntervalActionHandler>().GetNextAction(_actionIndex, out CustomCommand command);
-
-            if (command != null)
-            {
-                TwitchIntegrationHandler.LogToMain($"[{_serverConfiguration.TwitchSettings.TwitchChannelName}] {nameof(TriggerAction)}", command.Name);
-                await command.Execute(null);
-            }
-        }
-        catch (Exception ex)
-        {
-            TwitchIntegrationHandler.LogToMain($"[{_serverConfiguration.TwitchSettings.TwitchChannelName}] {nameof(TriggerAction)}", string.Empty, LogSeverity.Error, exception: ex);
+            TwitchIntegrationHandler.LogToMain($"[{_serverConfiguration.TwitchSettings.TwitchChannelName}] {nameof(ExecuteNextAction)}", command.Name);
+            await command.Execute(null);
         }
     }
 }

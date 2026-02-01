@@ -32,7 +32,7 @@ public class CounterHandler : BaseHandler
 
     private async Task InitializeCounterHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, _counters);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, COUNTER_FILE_NAME, _counters);
         await LoadCounterCollectionFromFile();
 
         await UpdateCommandService();

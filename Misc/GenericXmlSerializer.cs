@@ -10,17 +10,20 @@ namespace GeistDesWaldes.Misc;
 
 public static class GenericXmlSerializer
 {
-    public static async Task EnsurePathExistance<T>(LogHandler logger, string directoryPath, string filename = null, T file = default)
+    public static async Task EnsurePathExistence<T>(LogHandler logger, string directoryPath, string filename = null, T file = default)
     {
         try
         {
+            if (directoryPath == null)
+                throw new ArgumentNullException(nameof(directoryPath));
+            
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
 
                 if (logger != null)
                 {
-                    await logger.Log(new LogMessage(LogSeverity.Info, nameof(EnsurePathExistance), $"Created Directory: {directoryPath}"));
+                    await logger.Log(new LogMessage(LogSeverity.Info, nameof(EnsurePathExistence), $"Created Directory: {directoryPath}"));
                 }
             }
 
@@ -34,16 +37,16 @@ public static class GenericXmlSerializer
 
                     if (logger != null)
                     {
-                        await logger.Log(new LogMessage(LogSeverity.Info, nameof(EnsurePathExistance), $"Created File: {path}"));
+                        await logger.Log(new LogMessage(LogSeverity.Info, nameof(EnsurePathExistence), $"Created File: {path}"));
                     }
                 }
             }
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             if (logger != null)
             {
-                await logger.Log(new LogMessage(LogSeverity.Error, nameof(EnsurePathExistance), $"Could not ensure path existance!\n{e}"));
+                await logger.Log(new LogMessage(LogSeverity.Error, nameof(EnsurePathExistence), $"Could not ensure path existence!\n{e}"));
             }
         }
     }
@@ -55,21 +58,24 @@ public static class GenericXmlSerializer
             T castedObject = (T)objectToSave;
             string path = Path.Combine(directoryPath, $"{Path.GetFileNameWithoutExtension(filename)}.xml");
 
-            using FileStream file = new(path, FileMode.Create, FileAccess.Write);
-            using XmlWriter writer = XmlWriter.Create(file, new XmlWriterSettings
+            await using FileStream file = new(path, FileMode.Create, FileAccess.Write);
+            await using XmlWriter writer = XmlWriter.Create(file, new XmlWriterSettings
             {
                 Indent = true,
-                NewLineOnAttributes = true
+                NewLineOnAttributes = true,
+                Async = true
             });
 
             XmlSerializer serializer = new(typeof(T));
             serializer.Serialize(writer, castedObject);
 
-            await logger?.Log(new LogMessage(LogSeverity.Verbose, nameof(SaveAsync), $"Successfully saved {path}!"));
+            if (logger != null)
+                await logger.Log(new LogMessage(LogSeverity.Verbose, nameof(SaveAsync), $"Successfully saved {path}!"));
         }
-        catch (IOException e)
+        catch (Exception e)
         {
-            await logger?.Log(new LogMessage(LogSeverity.Error, nameof(SaveAsync), $"Saving Failed!\n{e}"));
+            if (logger != null)
+                await logger.Log(new LogMessage(LogSeverity.Error, nameof(SaveAsync), $"Saving Failed!\n{e}"));
         }
     }
 
@@ -81,17 +87,19 @@ public static class GenericXmlSerializer
         {
             string path = Path.Combine(directoryPath, $"{Path.GetFileNameWithoutExtension(filename)}.xml");
 
-            using FileStream file = new(path, FileMode.OpenOrCreate, FileAccess.Read);
+            await using FileStream file = new(path, FileMode.OpenOrCreate, FileAccess.Read);
             using XmlReader reader = XmlReader.Create(file);
 
             XmlSerializer serializer = new(typeof(T));
             loadedFile = (T)serializer.Deserialize(reader);
 
-            await logger?.Log(new LogMessage(LogSeverity.Verbose, nameof(LoadAsync), $"Successfully loaded {path}!"));
+            if (logger != null)
+                await logger.Log(new LogMessage(LogSeverity.Verbose, nameof(LoadAsync), $"Successfully loaded {path}!"));
         }
-        catch (IOException e)
+        catch (Exception e)
         {
-            await logger?.Log(new LogMessage(LogSeverity.Error, nameof(LoadAsync), $"Loading Failed!\n{e}"));
+            if (logger != null)
+                await logger.Log(new LogMessage(LogSeverity.Error, nameof(LoadAsync), $"Loading Failed!\n{e}"));
         }
 
         return loadedFile;
@@ -118,9 +126,10 @@ public static class GenericXmlSerializer
 
                 loadedFiles.Add(loadedFile);
             }
-            catch (IOException e)
+            catch (Exception e)
             {
-                await logger?.Log(new LogMessage(LogSeverity.Error, nameof(LoadAllAsync), $"Loading Failed!\n{e}"));
+                if (logger != null)
+                    await logger.Log(new LogMessage(LogSeverity.Error, nameof(LoadAllAsync), $"Loading Failed!\n{e}"));
             }
         }
 
@@ -138,18 +147,21 @@ public static class GenericXmlSerializer
             {
                 File.Delete(path);
 
-                await logger?.Log(new LogMessage(LogSeverity.Info, nameof(DeleteAsync), $"Successfully deleted {path}!"));
+                if (logger != null)
+                    await logger.Log(new LogMessage(LogSeverity.Info, nameof(DeleteAsync), $"Successfully deleted {path}!"));
             }
             else
             {
-                await logger?.Log(new LogMessage(LogSeverity.Info, nameof(DeleteAsync), $"File does not exist {path}!"));
+                if (logger != null)
+                    await logger.Log(new LogMessage(LogSeverity.Info, nameof(DeleteAsync), $"File does not exist {path}!"));
             }
 
             return true;
         }
         catch (Exception e)
         {
-            await logger?.Log(new LogMessage(LogSeverity.Error, nameof(DeleteAsync), $"Deleting Failed!\n{e}"));
+            if (logger != null)
+                await logger.Log(new LogMessage(LogSeverity.Error, nameof(DeleteAsync), $"Deleting Failed!\n{e}"));
         }
 
         return false;

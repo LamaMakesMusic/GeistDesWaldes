@@ -31,7 +31,7 @@ public class ForestUserHandler : BaseHandler
 
     public ForestUserHandler(Server server) : base(server)
     {
-        _usersDirectoryPath = Path.Combine(Server.ServerFilesDirectoryPath, "Users");
+        _usersDirectoryPath = Path.Combine(Server.ServerFilesDirectoryPath, "users");
     }
 
     public override async Task OnServerStartUp()
@@ -46,7 +46,7 @@ public class ForestUserHandler : BaseHandler
 
     private async Task InitializeForestUserHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance<object>(Server.LogHandler, _usersDirectoryPath);
+        await GenericXmlSerializer.EnsurePathExistence<object>(Server.LogHandler, _usersDirectoryPath);
 
         await LoadUsersFromFile();
         await FixMissingUserData();

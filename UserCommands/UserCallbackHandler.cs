@@ -36,7 +36,7 @@ public class UserCallbackHandler : BaseHandler
 
     private async Task InitializeUserCallbackHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, USERCALLBACKS_FILE_NAME, UserCallbacks);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, USERCALLBACKS_FILE_NAME, UserCallbacks);
         await LoadUserCallbacksFromFile();
     }
 

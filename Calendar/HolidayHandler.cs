@@ -66,7 +66,7 @@ public class HolidayHandler : BaseHandler
 
     private async Task InitializeHolidayHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, HOLIDAYBEHAVIOURS_FILE_NAME, _behaviourDictionary);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, HOLIDAYBEHAVIOURS_FILE_NAME, _behaviourDictionary);
 
         await LoadHolidayBehavioursFromFile();
     }

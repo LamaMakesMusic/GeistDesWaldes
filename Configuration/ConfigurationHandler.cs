@@ -21,9 +21,9 @@ public static class ConfigurationHandler
 
     public static async Task Init()
     {
-        ServerFilesDirectory = Path.GetFullPath(Path.Combine(Launcher.ApplicationFilesPath, "Servers"));
-        await GenericXmlSerializer.EnsurePathExistance<object>(null, ServerFilesDirectory);
-        await GenericXmlSerializer.EnsurePathExistance(null, Launcher.CommonFilesPath, SHARED_CONFIG_FILE_NAME, Shared);
+        ServerFilesDirectory = Path.GetFullPath(Path.Combine(Launcher.ApplicationFilesPath, "servers"));
+        await GenericXmlSerializer.EnsurePathExistence<object>(null, ServerFilesDirectory);
+        await GenericXmlSerializer.EnsurePathExistence(null, Launcher.CommonFilesPath, SHARED_CONFIG_FILE_NAME, Shared);
     }
 
     public static ServerConfiguration EnsureServerConfig(ulong guildId)

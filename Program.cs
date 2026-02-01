@@ -312,9 +312,7 @@ public class Program
 
             // Check if twitch channel
             if (result == null)
-            {
                 result = GetTwitchChannel(channelId);
-            }
 
             return (T)result;
         }
@@ -332,13 +330,11 @@ public class Program
             channelName = channelName.Trim();
 
             if (channelName.Equals("twitch", StringComparison.OrdinalIgnoreCase))
-            {
                 return await GetChannel<T>(ConfigurationHandler.Configs[guildId].TwitchSettings.TwitchMessageChannelId);
-            }
 
 
             SocketGuild guild = DiscordClient.Guilds.FirstOrDefault(g => g.Id == guildId);
-            if (guild == default)
+            if (guild == null)
             {
                 throw new Exception($"Guild Not Found! Could not find guild with id '{guildId}' in joined guilds.");
             }
@@ -346,36 +342,26 @@ public class Program
             T result;
 
             if (TryGetChannelContaining(GetChannelsByType(guild, ChannelType.Text), channelName, out result))
-            {
                 return result;
-            }
 
             if (TryGetChannelContaining(GetChannelsByType(guild, ChannelType.Voice), channelName, out result))
-            {
                 return result;
-            }
 
             if (TryGetChannelContaining(GetChannelsByType(guild, ChannelType.Forum), channelName, out result))
-            {
                 return result;
-            }
 
             if (TryGetChannelContaining(GetChannelsByType(guild, ChannelType.PublicThread), channelName, out result))
-            {
                 return result;
-            }
 
             if (TryGetChannelContaining(guild.Channels, channelName, out result))
-            {
                 return result;
-            }
 
             return null;
         }
         catch (Exception e)
         {
             await LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(GetChannel), "", e));
-            return default;
+            return null;
         }
     }
 
@@ -425,7 +411,7 @@ public class Program
 
         if (configPair.Value == null)
             return null;
-
+        
         string channelName = configPair.Value.TwitchSettings.TwitchChannelName;
         JoinedChannel channel = TwitchIntegrationHandler.Instance.GetChannelObject(channelName);
 

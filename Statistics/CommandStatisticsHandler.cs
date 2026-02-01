@@ -32,7 +32,7 @@ public class CommandStatisticsHandler : BaseHandler
 
     private async Task InitializeCommandStatisticsHandler()
     {
-        await GenericXmlSerializer.EnsurePathExistance(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDS_FILE_NAME, _commandStatistics);
+        await GenericXmlSerializer.EnsurePathExistence(Server.LogHandler, Server.ServerFilesDirectoryPath, COMMANDS_FILE_NAME, _commandStatistics);
         await LoadCommandStatisticsFromFile();
     }
 
