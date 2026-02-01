@@ -11,15 +11,11 @@ public class AudioQueueEntry
         Web = 1
     }
 
-    private readonly object _locker = new();
+    public readonly SourceOption Source;
+    public readonly ICommandContext Context;
+    public readonly string Path;
+    
     public readonly CancellationTokenSource CancellationSource;
-    private RuntimeResult _playResult;
-    public ICommandContext Context;
-    public string Path;
-
-    public bool PlaybackStarted = false;
-
-    public SourceOption Source;
 
 
     public AudioQueueEntry(string path, SourceOption sourceType, ICommandContext context)
@@ -29,25 +25,5 @@ public class AudioQueueEntry
 
         Context = context;
         CancellationSource = new CancellationTokenSource();
-
-        _playResult = null;
-    }
-
-    public RuntimeResult PlayResult
-    {
-        get
-        {
-            lock (_locker)
-            {
-                return _playResult;
-            }
-        }
-        set
-        {
-            lock (_locker)
-            {
-                _playResult = value;
-            }
-        }
     }
 }

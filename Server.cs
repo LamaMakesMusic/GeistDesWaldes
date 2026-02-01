@@ -291,6 +291,7 @@ public class Server
         await CommandService.ExecuteAsync(context, prefixPosition, Services);
     }
 
+    
     public async Task OnCommandExecutedAsync(Optional<CommandInfo> command, ICommandContext context, IResult result)
     {
         ForestUser user = (await GetModule<ForestUserHandler>().GetUser(context.User))?.ResultValue;
@@ -309,9 +310,7 @@ public class Server
             for (int i = 0; i < command.Value?.Preconditions.Count; i++)
             {
                 if (command.Value == null)
-                {
                     continue;
-                }
 
                 if (command.Value.Preconditions[i] is CommandCooldown coco)
                 {
@@ -330,85 +329,7 @@ public class Server
         }
         else
         {
-            bool allowOnTwitch = false;
-            string resultError = result.Error.ToString() ?? string.Empty;
-
-            if (resultError.Equals("UnmetPrecondition"))
-            {
-                if (result.ErrorReason.StartsWith("ERROR_COOLDOWN"))
-                {
-                    allowOnTwitch = true;
-                    resultError = result.ErrorReason.Substring("ERROR_COOLDOWN".Length);
-                }
-                else if (result.ErrorReason.StartsWith("ERROR_CATEGORY_LOCKED"))
-                {
-                    allowOnTwitch = true;
-                    resultError = result.ErrorReason.Substring("ERROR_CATEGORY_LOCKED".Length);
-                }
-                else if (result.ErrorReason.IndexOf("lacking funds", StringComparison.OrdinalIgnoreCase) > -1)
-                {
-                    allowOnTwitch = true;
-                    resultError = GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(CurrencyCustomization.ToStringType.NotEnough);
-                }
-                else
-                {
-                    resultError = ReplyDictionary.ERROR_UNMET_PRECONDITION;
-                }
-            }
-            else if (resultError.Equals("UnknownCommand"))
-            {
-                resultError = ReplyDictionary.ERROR_UNKNOWN_COMMAND;
-            }
-            else if (resultError.StartsWith(nameof(ForestUserHandler)))
-            {
-                resultError = resultError.Remove(0, nameof(ForestUserHandler).Length + 1);
-                allowOnTwitch = true;
-            }
-            else if (resultError.Equals("A quoted parameter is incomplete."))
-            {
-                resultError = ReplyDictionary.ERROR_INCOMPLETE_QUOTED_PARAMETER;
-            }
-            else if (resultError.Equals("The input text has too many parameters."))
-            {
-                resultError = ReplyDictionary.ERROR_TOO_MANY_PARAMETERS;
-            }
-            else if (resultError.StartsWith(ReplyDictionary.COMMAND_ONLY_VALID_ON_DISCORD))
-            {
-                allowOnTwitch = true;
-            }
-            else if (resultError.StartsWith(ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH))
-            {
-                allowOnTwitch = true;
-            }
-            else if (resultError.Equals("Unsuccessful"))
-            {
-                if (result.ErrorReason.Equals(ReplyDictionary.COMMAND_ONLY_VALID_IN_PRIVATE_CHANNEL))
-                {
-                    allowOnTwitch = true;
-                    resultError = result.ErrorReason;
-                }
-                else
-                {
-                    resultError = $"{ReplyDictionary.ERROR_UNSUCCESSFUL}\n{result.ErrorReason.Substring(0, Math.Min(result.ErrorReason.Length, 160))}";
-                }
-            }
-            else if (result.ErrorReason.Length < 160)
-            {
-                resultError = result.ErrorReason;
-            }
-
-            if (allowOnTwitch || !(context.Channel is TwitchMessageChannel))
-            {
-                ChannelMessage msg = new ChannelMessage(context)
-                                     .SetTemplate(ChannelMessage.MessageTemplateOption.Error)
-                                     .AddContent(new ChannelMessageContent()
-                                         .SetDescription(resultError)
-                                     );
-
-                await msg.SendAsync();
-            }
-
-            await LogHandler.Log(new LogMessage(LogSeverity.Error, result.Error.ToString(), result.ErrorReason));
+            await HandleFailedCommand(context, result);
         }
     }
 
@@ -420,5 +341,89 @@ public class Server
         }
 
         await GetModule<CommandStatisticsHandler>().RecordCommand(command.GetFullCommandName());
+    }
+    
+    
+    public async Task HandleFailedCommand(ICommandContext context, IResult result)
+    {
+        bool allowOnTwitch = false;
+        string resultError = result.Error.ToString() ?? string.Empty;
+
+        if (resultError.Equals("UnmetPrecondition"))
+        {
+            if (result.ErrorReason.StartsWith("ERROR_COOLDOWN"))
+            {
+                allowOnTwitch = true;
+                resultError = result.ErrorReason.Substring("ERROR_COOLDOWN".Length);
+            }
+            else if (result.ErrorReason.StartsWith("ERROR_CATEGORY_LOCKED"))
+            {
+                allowOnTwitch = true;
+                resultError = result.ErrorReason.Substring("ERROR_CATEGORY_LOCKED".Length);
+            }
+            else if (result.ErrorReason.IndexOf("lacking funds", StringComparison.OrdinalIgnoreCase) > -1)
+            {
+                allowOnTwitch = true;
+                resultError = GetModule<CurrencyHandler>().CustomizationData.GetToStringMessage(CurrencyCustomization.ToStringType.NotEnough);
+            }
+            else
+            {
+                resultError = ReplyDictionary.ERROR_UNMET_PRECONDITION;
+            }
+        }
+        else if (resultError.Equals("UnknownCommand"))
+        {
+            resultError = ReplyDictionary.ERROR_UNKNOWN_COMMAND;
+        }
+        else if (resultError.StartsWith(nameof(ForestUserHandler)))
+        {
+            resultError = resultError.Remove(0, nameof(ForestUserHandler).Length + 1);
+            allowOnTwitch = true;
+        }
+        else if (resultError.Equals("A quoted parameter is incomplete."))
+        {
+            resultError = ReplyDictionary.ERROR_INCOMPLETE_QUOTED_PARAMETER;
+        }
+        else if (resultError.Equals("The input text has too many parameters."))
+        {
+            resultError = ReplyDictionary.ERROR_TOO_MANY_PARAMETERS;
+        }
+        else if (resultError.StartsWith(ReplyDictionary.COMMAND_ONLY_VALID_ON_DISCORD))
+        {
+            allowOnTwitch = true;
+        }
+        else if (resultError.StartsWith(ReplyDictionary.COMMAND_ONLY_VALID_ON_TWITCH))
+        {
+            allowOnTwitch = true;
+        }
+        else if (resultError.Equals("Unsuccessful"))
+        {
+            if (result.ErrorReason.Equals(ReplyDictionary.COMMAND_ONLY_VALID_IN_PRIVATE_CHANNEL))
+            {
+                allowOnTwitch = true;
+                resultError = result.ErrorReason;
+            }
+            else
+            {
+                resultError = $"{ReplyDictionary.ERROR_UNSUCCESSFUL}\n{result.ErrorReason.Substring(0, Math.Min(result.ErrorReason.Length, 160))}";
+            }
+        }
+        else if (result.ErrorReason.Length < 160)
+        {
+            resultError = result.ErrorReason;
+        }
+
+        if (allowOnTwitch || !(context.Channel is TwitchMessageChannel))
+        {
+            ChannelMessage msg = new ChannelMessage(context)
+                                 .SetTemplate(ChannelMessage.MessageTemplateOption.Error)
+                                 .AddContent(new ChannelMessageContent()
+                                     .SetDescription(resultError)
+                                 );
+
+            await msg.SendAsync();
+        }
+
+        await LogHandler.Log(new LogMessage(LogSeverity.Error, result.Error.ToString(), result.ErrorReason));
     }
 }

@@ -38,7 +38,7 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
     {
-        Log(new LogMessage(ToSeverity(logLevel), "ILogger", formatter?.Invoke(state, exception) ?? "FORMATTER == NULL"));
+        Log(new LogMessage(ToSeverity(logLevel), "ILogger", formatter.Invoke(state, exception) ?? "FORMATTER == NULL"));
     }
 
     public Task OnLog(LogMessage message)
@@ -101,7 +101,7 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
         {
             FileInfo file = new(Path.Combine(directory, $"{LOG_FILE_NAME}.log"));
 
-            bool overwriteFile = !file.Exists || ConfigurationHandler.Shared.MaxLogFileSizeInMB < file.Length / 1024f / 1024f;
+            bool overwriteFile = !file.Exists || ConfigurationHandler.Shared.MaxLogFileSizeInMb < file.Length / 1024f / 1024f;
 
             using (FileStream stream = new(file.FullName, overwriteFile ? FileMode.Create : FileMode.Append, FileAccess.Write, FileShare.Read))
             {
@@ -112,8 +112,6 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
                         writer.Write(_logList.ToString());
                     }
                 }
-
-                ;
             }
 
             Log(new LogMessage(LogSeverity.Verbose, nameof(SaveToLogFile), "Saved Log File!"));
@@ -150,6 +148,7 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
             case LogLevel.Debug:
                 return LogSeverity.Debug;
 
+            default:
             case LogLevel.Trace:
                 return LogSeverity.Verbose;
 
@@ -165,7 +164,5 @@ public class LogHandler : ILogger<EventSubWebsocketClient>
             case LogLevel.Critical:
                 return LogSeverity.Critical;
         }
-
-        return LogSeverity.Verbose;
     }
 }

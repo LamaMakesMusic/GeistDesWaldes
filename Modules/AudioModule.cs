@@ -23,10 +23,7 @@ public class AudioModule : ModuleBase<CommandContext>, ICommandModule
     {
         try
         {
-            if (channel == null)
-            {
-                channel = (Context.User as IGuildUser)?.VoiceChannel;
-            }
+            channel ??= (Context.User as IGuildUser)?.VoiceChannel;
 
             await channel.ConnectAsync();
 

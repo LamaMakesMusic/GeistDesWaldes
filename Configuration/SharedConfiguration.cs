@@ -7,7 +7,8 @@ public class SharedConfiguration
 {
     public const string DISCORD_INVITE_URL = @"https://discord.com/api/oauth2/authorize?permissions=67069671894864&scope=applications.commands%20bot&client_id=ENTER_BOT_CLIENT_ID";
 
-    public int AudioCommandTimeOutInSeconds = 60;
+    public int AudioVoiceChannelIdleLeaveInSeconds = 1800;
+    
     public int DailyRestartDelayInSeconds = 120;
 
     public TimeSpan DailyRestartTime = new(5, 0, 0);
@@ -15,16 +16,15 @@ public class SharedConfiguration
     public int LivestreamMonitorIntervalInMinutes = 1;
 
     public int LogFileSaveIntervalInMinutes = 15;
-    public int MaxLogFileSizeInMB = 256;
+    public int MaxLogFileSizeInMb = 24;
 
     public Secrets Secrets = new();
 
     public int ServerWatchdogIntervalInMinutes = 2;
 
-    public int TwitchForceReconnectDelayInMinutes = 10;
+    public int TwitchForceReconnectDelayInMinutes = 5;
 
     public int UpdateUserIntervalInMinutes = 120;
-    public int VoiceChannelNoUsersExitInSeconds = 30;
 
     public int WebCalSyncIntervalInMinutes = 15;
 

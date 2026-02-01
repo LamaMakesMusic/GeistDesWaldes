@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -21,9 +22,9 @@ namespace GeistDesWaldes.Audio;
 public class AudioHandler : BaseHandler
 {
     public override int Priority => -13;
-    
-    public const string AUDIO_DIRECTORY_NAME = "audio";
-    public static readonly string[] SupportedAudioFileExtensions = [".mp3", ".ogg", ".wav"];
+
+    private const string AUDIO_DIRECTORY_NAME = "audio";
+    private static readonly string[] _supportedAudioFileExtensions = [".mp3", ".ogg", ".wav"];
 
     private readonly ConcurrentQueue<AudioQueueEntry> _audioQueue = new();
 
@@ -35,17 +36,21 @@ public class AudioHandler : BaseHandler
     private CancellationTokenSource _cancelQueueProcessorSource;
     private AudioOutStream _discordOutStream;
 
+    private IGuildUser BotGuildUser => Server.Guild.GetUser(Launcher.Instance.DiscordClient.CurrentUser.Id);
+
+    
     public AudioHandler(Server server) : base(server)
     {
         AudioDirectoryPath = Path.GetFullPath(Path.Combine(Server.ServerFilesDirectoryPath, AUDIO_DIRECTORY_NAME));
     }
 
+    
     public override async Task OnServerStartUp()
     {
         await base.OnServerStartUp();
 
         await InitializeAudioHandler();
-        StartAudioQueueProcessing();
+        EnsureAudioQueueProcessor();
     }
 
     public override async Task OnServerShutdown()
@@ -76,12 +81,13 @@ public class AudioHandler : BaseHandler
         await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(CheckIntegrity), "Audio Handler OK."), (int)ConsoleColor.DarkGreen);
     }
 
+    
     private async Task InitializeAudioHandler()
     {
         await GenericXmlSerializer.EnsurePathExistence<object>(Server.LogHandler, AudioDirectoryPath);
     }
 
-    private void StartAudioQueueProcessing()
+    private void EnsureAudioQueueProcessor()
     {
         if (_audioQueueProcessor == null && _cancelQueueProcessorSource == null)
         {
@@ -97,171 +103,180 @@ public class AudioHandler : BaseHandler
 
         try
         {
-            int loopDelayInMs = 1000;
-            int exitTimerInMs = -1;
-
+            const int INTERVAL_IN_SECONDS = 1;
+            int exitInSeconds = ConfigurationHandler.Shared.AudioVoiceChannelIdleLeaveInSeconds;
+            
             while (_audioQueueProcessor != null && !_cancelQueueProcessorSource.IsCancellationRequested)
             {
-                if (!_audioQueue.IsEmpty)
+                await Task.Delay(TimeSpan.FromSeconds(INTERVAL_IN_SECONDS), _cancelQueueProcessorSource.Token);
+
+                // auto-leave timer
+                if (_audioQueue.IsEmpty)
                 {
-                    exitTimerInMs = ConfigurationHandler.Shared.VoiceChannelNoUsersExitInSeconds * 1000;
+                    if (HasActiveListeners())
+                    {
+                        exitInSeconds -= INTERVAL_IN_SECONDS;
 
-                    if (_audioQueue.TryDequeue(out AudioQueueEntry nextEntry))
-                    {
-                        if (!nextEntry.CancellationSource.IsCancellationRequested)
-                        {
-                            nextEntry.PlaybackStarted = true;
-                            RuntimeResult playResult = await SayAndLogAudio(nextEntry);
-                            nextEntry.PlayResult = playResult;
-                            nextEntry.PlaybackStarted = false;
-                        }
+                        if (exitInSeconds > 0)
+                            continue;
                     }
-                    else
-                    {
-                        await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Could not dequeue next entry!"));
-                    }
+                    
+                    await LeaveVoiceChannel();
+                    break;
                 }
-                else if (exitTimerInMs > 0)
+                
+                // play all in queue
+                while (_audioQueue.TryDequeue(out AudioQueueEntry nextEntry))
                 {
-                    exitTimerInMs -= loopDelayInMs;
-
-                    if (exitTimerInMs < 1)
-                    {
-                        await LeaveVoiceChannel();
-                    }
+                    if (nextEntry.CancellationSource.IsCancellationRequested)
+                        continue;
+                    
+                    RuntimeResult result = await SayAndLogAudio(nextEntry);
+                    await PostPlaybackResult(nextEntry, result);
                 }
-
-                await Task.Delay(loopDelayInMs, _cancelQueueProcessorSource.Token);
+                
+                // reset idle timer
+                exitInSeconds = ConfigurationHandler.Shared.AudioVoiceChannelIdleLeaveInSeconds;
             }
         }
-        catch (TaskCanceledException)
+        catch (Exception ex)
         {
+            if (ex is not TaskCanceledException)
+                await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(ProcessAudioQueue), string.Empty, ex));
         }
         finally
         {
             _audioQueueProcessor = null;
             _cancelQueueProcessorSource = null;
 
-            await Server.LogHandler.Log(new LogMessage(LogSeverity.Warning, nameof(ProcessAudioQueue), "Stopped."));
+            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(ProcessAudioQueue), "Stopped."));
         }
     }
 
+    private bool HasActiveListeners()
+    {
+        if (_audioClient == null)
+            return false;
+        
+        if (BotGuildUser?.VoiceChannel is not { } activeChannel)
+            return false;
 
+        if (activeChannel is not SocketVoiceChannel activeSocketChannel)
+            return false;
+
+        return activeSocketChannel.ConnectedUsers.Count > 2;
+    }
+
+    private async Task PostPlaybackResult(AudioQueueEntry entry, RuntimeResult result)
+    {
+        if (entry.Context == null || result.IsSuccess)
+            return;
+
+        await Server.HandleFailedCommand(entry.Context, result);
+    }
+
+    
     private async Task<RuntimeResult> SayAndLogAudio(AudioQueueEntry entry)
     {
         try
         {
-            IGuildUser botUser = Server.Guild.GetUser(Launcher.Instance.DiscordClient.CurrentUser.Id);
+            IGuildUser botUser = BotGuildUser;
+            
             if (botUser == null)
-            {
-                throw new Exception("Could not get bot User from Guild!");
-            }
+                throw new Exception("Could not get Bot User from Guild!");
 
-            IVoiceChannel channel;
+            if (!TryGetVoiceChannelContext(botUser, entry, out IVoiceChannel channel))
+                throw new Exception("Could not get VoiceChannel from Guild!");
 
-            if (entry.Context.User is MetaUser metaUser)
-            {
-                channel = (metaUser.OriginalUser as IGuildUser)?.VoiceChannel;
-            }
-            else
-            {
-                channel = (entry.Context.User as IGuildUser)?.VoiceChannel;
-            }
-
-            if (channel == null)
-            {
-                ulong id = (botUser.VoiceChannel ?? Server.RuntimeConfig.DefaultBotVoiceChannel)?.Id ?? 0;
-                channel = id == 0 ? null : Server.Guild.GetVoiceChannel(id);
-
-                if (channel == null || !(channel as SocketVoiceChannel).ConnectedUsers.Any(u => u.Id != botUser.Id))
-                {
-                    foreach (SocketVoiceChannel svc in Server.Guild.VoiceChannels)
-                    {
-                        if (!svc.ConnectedUsers.Any(u => u.Id != botUser.Id))
-                        {
-                            continue;
-                        }
-
-                        channel = svc;
-                        break;
-                    }
-
-                    if (channel == null)
-                    {
-                        return CustomRuntimeResult.FromError(ReplyDictionary.NO_VOICE_CHANNEL_FOUND);
-                    }
-                }
-            }
-
-            if (_audioClient == null || botUser.VoiceChannel == null || botUser.VoiceChannel.Id != channel.Id)
-            {
-                if (_discordOutStream != null)
-                {
-                    _discordOutStream.Dispose();
-                    _discordOutStream = null;
-                }
-
-                float connectTimeoutInMs = 8000;
-                Task<IAudioClient> connectTask = channel.ConnectAsync();
-
-                while (!connectTask.IsCompleted)
-                {
-                    if (connectTimeoutInMs < 1)
-                    {
-                        throw new TimeoutException($"Timed out connecting to voice channel '{channel.Name}' for audio '{entry.Path}'...!");
-                    }
-
-                    await Task.Delay(500);
-                    connectTimeoutInMs -= 500;
-                }
-
-                if (connectTask.IsFaulted)
-                {
-                    throw connectTask.Exception;
-                }
-
-                _audioClient = await connectTask;
-            }
-
-
+            await EnsureVoiceChannelConnection(botUser, channel);
+            
             if (_audioClient == null)
-            {
-                return CustomRuntimeResult.FromError($"AudioClient not found! => '{channel.Name}' ({channel.Guild.Name}): '{entry.Path}'");
-            }
+                throw new Exception("Could not get AudioClient!");
 
             await Server.LogHandler.Log(new LogMessage(LogSeverity.Info, nameof(SayAndLogAudio), $"In '{channel.Name}' ({channel.Guild.Name}): '{entry.Path}'"));
 
-            if (_discordOutStream == null)
-            {
-                _discordOutStream = _audioClient.CreatePCMStream(AudioApplication.Mixed, channel.Bitrate);
-            }
-
+            _discordOutStream ??= _audioClient.CreatePCMStream(AudioApplication.Mixed, channel.Bitrate);
 
             using Process ffmpeg = CreateProcess(entry.Path);
             await ffmpeg.StandardOutput.BaseStream.CopyToAsync(_discordOutStream);
             await _discordOutStream.FlushAsync();
-
-
+            
             return CustomRuntimeResult.FromSuccess();
         }
         catch (Exception e)
         {
             await Server.LogHandler.Log(new LogMessage(LogSeverity.Error, nameof(SayAndLogAudio), "Failed playing Audio File!", e));
 
+            if (_discordOutStream != null)
+            {
+                await _discordOutStream.DisposeAsync();
+                _discordOutStream = null;
+            }
+            
             if (_audioClient != null)
             {
                 await _audioClient.StopAsync();
             }
 
-            if (_discordOutStream != null)
-            {
-                _discordOutStream.Dispose();
-                _discordOutStream = null;
-            }
-
             return CustomRuntimeResult.FromError("Failed Playing Audio File!");
         }
     }
+
+    private bool TryGetVoiceChannelContext(IGuildUser botUser, AudioQueueEntry entry, out IVoiceChannel result)
+    {
+        result = entry.Context.User switch
+        {
+            MetaUser metaUser => (metaUser.OriginalUser as IGuildUser)?.VoiceChannel,
+            IGuildUser guildUser => guildUser.VoiceChannel,
+            _ => null
+        };
+
+        if (result != null)
+            return true;  // found the channel in which the user of the command is in
+
+        result = botUser?.VoiceChannel ?? Server.RuntimeConfig.DefaultBotVoiceChannel;
+
+        if (result != null)
+            return true; // found the channel the bot is currently in OR the default voice channel of the bot
+        
+        return TryFindActiveVoiceChannel(botUser, out result);
+    }
+
+    private bool TryFindActiveVoiceChannel(IGuildUser botUser, out IVoiceChannel result)
+    {
+        if (botUser != null)
+        {
+            foreach (SocketVoiceChannel svc in Server.Guild.VoiceChannels)
+            {
+                foreach (SocketGuildUser user in svc.ConnectedUsers)
+                {
+                    if (user.Id != botUser.Id)
+                        continue;
+
+                    result = svc;
+                    return true;
+                }
+            }
+        }
+
+        result = null;
+        return false;
+    }
+
+    private async Task EnsureVoiceChannelConnection(IGuildUser user, IVoiceChannel channel)
+    {
+        if (_audioClient != null && user.VoiceChannel != null && user.VoiceChannel.Id == channel.Id)
+            return;
+        
+        if (_discordOutStream != null)
+        {
+            await _discordOutStream.DisposeAsync();
+            _discordOutStream = null;
+        }
+
+        _audioClient = await channel.ConnectAsync();
+    }
+    
 
     public async Task<RuntimeResult> QueueAudioFileAtPath(string localPathOrUrl, ICommandContext context)
     {
@@ -279,67 +294,26 @@ public class AudioHandler : BaseHandler
             localPathOrUrl = audioFile.FullName;
 
             if (!localPathOrUrl.StartsWith(AudioDirectoryPath))
-            {
                 return CustomRuntimeResult.FromError(ReplyDictionary.PATH_MUST_NOT_END_ABOVE_START_DIRECTORY);
-            }
 
-            if (audioFile.Exists)
-            {
-                localPathOrUrl = audioFile.FullName;
-            }
-            else
-            {
+            if (!audioFile.Exists)
                 return CustomRuntimeResult.FromError($"{ReplyDictionary.FILE_DOES_NOT_EXIST} ('{localPathOrUrl}')");
-            }
+                
+            localPathOrUrl = audioFile.FullName;
         }
 
-        if (!SupportedAudioFileExtensions.Contains(Path.GetExtension(localPathOrUrl)))
-        {
+        if (!_supportedAudioFileExtensions.Contains(Path.GetExtension(localPathOrUrl)))
             return CustomRuntimeResult.FromError(ReplyDictionary.FILE_TYPE_NOT_SUPPORTED);
-        }
 
-        return await QueueAndAwaitAudio(new AudioQueueEntry(localPathOrUrl, source, context));
-    }
+        // Enqueue
+        AudioQueueEntry entry = new(localPathOrUrl, source, context);
+        _audioQueue.Enqueue(entry);
 
-    private async Task<RuntimeResult> QueueAndAwaitAudio(AudioQueueEntry entry)
-    {
-        try
-        {
-            _audioQueue.Enqueue(entry);
-
-            // Extra 1000ms since we include the time the SayAndLogAudio() waits in between some operations
-            int totalTimeoutMs = 1000 + ConfigurationHandler.Shared.AudioCommandTimeOutInSeconds * 1000 * Math.Max(1, _audioQueue.Count);
-            int timeOutInMs = totalTimeoutMs;
-
-            await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(QueueAndAwaitAudio), $"Enqueued audio '{entry}'. (Position {_audioQueue.Count})"));
-
-            if (_audioQueueProcessor == null)
-            {
-                StartAudioQueueProcessing();
-            }
-
-            while (entry.PlayResult == null)
-            {
-                await Task.Delay(500);
-
-                if (!entry.PlaybackStarted)
-                {
-                    timeOutInMs -= 500;
-
-                    if (timeOutInMs < 1)
-                    {
-                        entry.CancellationSource.Cancel();
-                        throw new TimeoutException($"Timed out ({totalTimeoutMs * 0.001} seconds) waiting for '{entry}'.");
-                    }
-                }
-            }
-
-            return entry.PlayResult;
-        }
-        catch (Exception e)
-        {
-            return CustomRuntimeResult.FromError(e.ToString());
-        }
+        if (_audioQueueProcessor == null)
+            EnsureAudioQueueProcessor();
+        
+        await Server.LogHandler.Log(new LogMessage(LogSeverity.Verbose, nameof(QueueAudioFileAtPath), $"Enqueued audio '{entry}'. (Position {_audioQueue.Count})"));
+        return CustomRuntimeResult.FromSuccess();
     }
 
 
@@ -347,16 +321,21 @@ public class AudioHandler : BaseHandler
     {
         try
         {
+            if (_discordOutStream != null)
+            {
+                await _discordOutStream.DisposeAsync();
+                _discordOutStream = null;
+            }
+            
+            if (BotGuildUser?.VoiceChannel is  { } activeVoiceChannel)
+            {
+                await activeVoiceChannel.DisconnectAsync();
+            }
+            
             if (_audioClient != null)
             {
                 await _audioClient.StopAsync();
                 _audioClient = null;
-            }
-
-            if (_discordOutStream != null)
-            {
-                _discordOutStream.Dispose();
-                _discordOutStream = null;
             }
 
             return CustomRuntimeResult.FromSuccess();
@@ -392,7 +371,7 @@ public class AudioHandler : BaseHandler
 
                     if (attr.HasFlag(FileAttributes.Directory))
                     {
-                        files = Directory.EnumerateFiles(fullPath, "*.*", SearchOption.AllDirectories).Where(s => SupportedAudioFileExtensions.Contains(Path.GetExtension(s), StringComparer.OrdinalIgnoreCase)).ToArray();
+                        files = Directory.EnumerateFiles(fullPath, "*.*", SearchOption.AllDirectories).Where(s => _supportedAudioFileExtensions.Contains(Path.GetExtension(s), StringComparer.OrdinalIgnoreCase)).ToArray();
                     }
                 }
                 catch (FileNotFoundException)
@@ -417,7 +396,7 @@ public class AudioHandler : BaseHandler
     }
 
 
-    private Process CreateProcess(string path)
+    private static Process CreateProcess(string path)
     {
         string logLevel;
         if (Launcher.LogLevel == 0 || Launcher.LogLevel == 1)
